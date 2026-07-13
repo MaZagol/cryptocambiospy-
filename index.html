@@ -9,6 +9,7 @@
     // Solución al conflicto: creamos una variable con otro nombre inicial, y luego la asignamos globalmente
     const supabaseConnection = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
+
     // Sobrescribimos el puntero para que todo tu código de abajo que usa "supabase.from..." funcione sin cambiar nada
     const supabase = supabaseConnection;
 
