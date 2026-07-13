@@ -6,7 +6,13 @@
     const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
     const SUPABASE_ANON_KEY = "TU_ANON_KEY_AQUÍ";
     
-    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    // Solución al conflicto: creamos una variable con otro nombre inicial, y luego la asignamos globalmente
+    const supabaseConnection = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+</script>
+
+<script>
+    // Sobrescribimos el puntero para que todo tu código de abajo que usa "supabase.from..." funcione sin cambiar nada
+    const supabase = supabaseConnection;
 
     const TELEFONO_WHATSAPP = "595961101538";
     const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
