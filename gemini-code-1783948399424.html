@@ -1,0 +1,397 @@
+<!-- Agregamos el SDK de Supabase en el head o antes del script -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+    // ⚠️ REEMPLAZA CON TUS DATOS DE SUPABASE (Los encontrás en Settings > API)
+    const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
+    const SUPABASE_ANON_KEY = "TU_ANON_KEY_AQUÍ";
+    
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const TELEFONO_WHATSAPP = "595961101538";
+    const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
+
+    let PRECIOS = { "USDC": { compra: 7530, venta: 7630 }, "USDT": { compra: 7520, venta: 7640 }, "BNB": { compra: 4330000, venta: 4390000 } };
+    const LIMITE_USD_MINIMO = { "USDC": 10, "USDT": 10, "BNB": 5 };
+    const LIMITE_GS_MAXIMO = 5000000;
+    const LIMITE_USD_MAXIMO = 1000;
+
+    let modoCalculo = "GASTAR"; 
+    let esWalletValida = false;
+    let esBancoValido = false;
+    let tipoIdentificadorBanco = "CUENTA"; 
+    let esMontoValido = false;
+    let esCedulaValida = false;
+    
+    let fondosActuales = { gs: 0, USDC: 0, USDT: 0, BNB: 0 };
+    let transaccionPendiente = null;
+    let channelOrdenes = null;
+
+    window.onload = async function() {
+        actualizarPizarraVisual();
+        sincronizarDivisaMonto();
+        await cargarFondosDesdeSupabase();
+        escucharCambiosFondos();
+        manejarCambioModo();
+        verificarBloqueosActivos();
+        actualizarHistorialPantalla();
+        document.getElementById('anioActual').innerText = new Date().getFullYear();
+    };
+
+    function showToast(message, type = "success") {
+        const toast = document.getElementById('toastNotification');
+        toast.innerText = message;
+        toast.className = `toast-notif show ${type}`;
+        setTimeout(() => { toast.classList.remove('show'); }, 3500);
+    }
+
+    function obtenerCriptoRef() {
+        const v = document.getElementById('cripto').value;
+        if (v.includes("BNB")) return "BNB";
+        if (v.includes("USDC")) return "USDC";
+        return "USDT";
+    }
+
+    function obtenerTasaUsdAGs() { return (PRECIOS.USDT.compra + PRECIOS.USDT.venta) / 2; }
+    function decimalesCripto(criptoRef) { return criptoRef === "BNB" ? 6 : 2; }
+
+    function sincronizarDivisaMonto() {
+        const criptoRef = obtenerCriptoRef();
+        const opt = document.getElementById('opt_monto_cripto');
+        opt.value = criptoRef; opt.innerText = criptoRef;
+        ejecutarCalculos();
+    }
+
+    function actualizarPizarraVisual() {
+        document.getElementById('piz-usdc-c').innerText = PRECIOS.USDC.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdc-v').innerText = PRECIOS.USDC.venta.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdt-c').innerText = PRECIOS.USDT.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdt-v').innerText = PRECIOS.USDT.venta.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-bnb-c').innerText = PRECIOS.BNB.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-bnb-v').innerText = PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs";
+    }
+
+    // 🌐 CONEXIÓN SUPABASE: Cargar saldos reales de la empresa
+    async function cargarFondosDesdeSupabase() {
+        const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
+        if (!error && data) {
+            fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
+            renderizarSaldosPantalla();
+        }
+    }
+
+    function renderizarSaldosPantalla() {
+        document.getElementById('saldo_gs_display').innerText = fondosActuales.gs.toLocaleString('de-DE') + " Gs";
+        document.getElementById('saldo_usdc_display').innerText = fondosActuales.USDC.toLocaleString('de-DE') + " USDC";
+        document.getElementById('saldo_usdt_display').innerText = fondosActuales.USDT.toLocaleString('de-DE') + " USDT";
+        document.getElementById('saldo_bnb_display').innerText = fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB";
+    }
+
+    // ⚡ REALTIME: Escuchar si cambias los saldos globales desde el admin
+    function escucharCambiosFondos() {
+        supabase.channel('cambios-reservas')
+            .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
+                fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
+                renderizarSaldosPantalla();
+            }).subscribe();
+    }
+
+    function manejarCambioModo() {
+        const esCompra = document.getElementById('typeCompra').checked;
+        document.getElementById('secCompraCampos').classList.toggle('hidden', !esCompra);
+        document.getElementById('secVentaCampos').classList.toggle('hidden', esCompra);
+        ejecutarCalculos();
+    }
+
+    function alternarDireccionCalculo() {
+        modoCalculo = (modoCalculo === "GASTAR") ? "RECIBIR" : "GASTAR";
+        document.getElementById('btnSwitchModo').innerText = (modoCalculo === "GASTAR") ? "🔄 Cambiar a: Quiero recibir exactamente..." : "🔄 Cambiar a: Quiero gastar...";
+        ejecutarCalculos();
+    }
+
+    function formatearMontoEntrada() {
+        const input = document.getElementById('monto_input');
+        const divisa = document.getElementById('monto_divisa').value;
+        let pos = input.selectionStart; let oldLen = input.value.length;
+        if (divisa === "Gs") {
+            let val = input.value.replace(/\D/g, "");
+            input.value = val === "" ? "" : parseInt(val).toLocaleString('de-DE');
+        } else {
+            let val = input.value.replace(/[^0-9.,]/g, '').replace(/\./g, ',');
+            let parts = val.split(','); if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
+            input.value = val;
+        }
+        input.setSelectionRange(pos + (input.value.length - oldLen), pos + (input.value.length - oldLen));
+        ejecutarCalculos();
+    }
+
+    function obtenerValorNumerico() {
+        const inputVal = document.getElementById('monto_input').value;
+        const divisa = document.getElementById('monto_divisa').value;
+        if (!inputVal) return 0;
+        return (divisa === "Gs") ? (parseFloat(inputVal.replace(/\./g, '')) || 0) : (parseFloat(inputVal.replace(/\,/g, '.')) || 0);
+    }
+
+    function actualizarEstadoCedula() {
+        const fileInput = document.getElementById('cedula_file');
+        const msg = document.getElementById('validadorCedulaTxt');
+        esCedulaValida = fileInput.files && fileInput.files.length > 0;
+        msg.innerText = esCedulaValida ? "✅ Documento cargado." : "❌ Sin documento cargado";
+        msg.className = "validador-status " + (esCedulaValida ? "valido" : "invalido");
+        validarFormularioCompleto();
+    }
+
+    function ejecutarCalculos() {
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        const criptoRef = obtenerCriptoRef();
+        const divisaSeleccionada = document.getElementById('monto_divisa').value;
+        let monto = obtenerValorNumerico();
+
+        const box = document.getElementById('boxEstimado');
+        const txtEst = document.getElementById('valEstimado');
+        const txtCom = document.getElementById('valComision');
+        const alerta = document.getElementById('alertaLimite');
+
+        if(monto <= 0) { 
+            box.classList.add('hidden'); document.getElementById('gsHighlightBox').classList.add('hidden'); 
+            esMontoValido = false; validarFormularioCompleto(); return; 
+        }
+        box.classList.remove('hidden');
+
+        const tasa = (tipoOp === "COMPRA") ? PRECIOS[criptoRef].venta : PRECIOS[criptoRef].compra;
+        let descuentoGsCalculado = 0; let descuentoCryptoCalculado = 0; let montoGsFinal = 0; let montoEnGsDeControl = 0;
+
+        if (divisaSeleccionada === "Gs") { montoEnGsDeControl = monto; } 
+        else if (divisaSeleccionada === "$") { montoEnGsDeControl = monto * obtenerTasaUsdAGs(); } 
+        else { montoEnGsDeControl = monto * tasa; }
+
+        const previewGs = document.getElementById('montoEnGsPreview');
+        if (divisaSeleccionada === "Gs") previewGs.classList.add('hidden');
+        else { previewGs.innerText = `≈ ${Math.round(montoEnGsDeControl).toLocaleString('de-DE')} Gs`; previewGs.classList.remove('hidden'); }
+
+        if (tipoOp === "COMPRA") {
+            box.style.borderColor = "var(--success)"; box.style.color = "var(--success)";
+            if (modoCalculo === "GASTAR") {
+                if (divisaSeleccionada === "Gs") {
+                    let totalBrutoCripto = monto / tasa; let comisionCripto = totalBrutoCripto * 0.01; let netoCripto = totalBrutoCripto - comisionCripto;
+                    txtEst.innerText = `${netoCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
+                    txtCom.innerText = `${comisionCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
+                    descuentoCryptoCalculado = totalBrutoCripto; montoGsFinal = monto;
+                } else {
+                    let cryptoMonto = (divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto;
+                    let totalBrutoGs = cryptoMonto * tasa; let comisionGs = totalBrutoGs * 0.01; let gsAPagar = totalBrutoGs + comisionGs;
+                    txtEst.innerText = `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs`; txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                    descuentoCryptoCalculado = cryptoMonto; montoGsFinal = gsAPagar;
+                }
+            } else {
+                let cryptoMonto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
+                let totalBrutoGs = cryptoMonto * tasa; let comisionGs = totalBrutoGs * 0.01; let gsAPagar = totalBrutoGs + comisionGs;
+                txtEst.innerText = `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs Pagar`; txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                descuentoCryptoCalculado = cryptoMonto; montoGsFinal = gsAPagar;
+            }
+        } else {
+            box.style.borderColor = "var(--accent-orange)"; box.style.color = "var(--accent-orange)";
+            let totalBrutoCripto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
+            let totalBrutoGs = totalBrutoCripto * tasa;
+            txtEst.innerText = `${Math.round(totalBrutoGs * 0.99).toLocaleString('de-DE')} Gs`;
+            txtCom.innerText = `${Math.round(totalBrutoGs * 0.01).toLocaleString('de-DE')} Gs`;
+            descuentoGsCalculado = totalBrutoGs * 0.99; montoGsFinal = descuentoGsCalculado;
+        }
+
+        const gsBox = document.getElementById('gsHighlightBox');
+        document.getElementById('gsHighlightLabel').innerText = (tipoOp === "COMPRA") ? "VAS A PAGAR" : "VAS A RECIBIR";
+        document.getElementById('gsHighlightValue').innerText = `${Math.round(montoGsFinal).toLocaleString('de-DE')} Gs`;
+        gsBox.classList.remove('hidden');
+
+        const usdAGs = obtenerTasaUsdAGs();
+        const gsMinimo = LIMITE_USD_MINIMO[criptoRef] * usdAGs;
+        const gsMaximoEfectivo = Math.min(LIMITE_GS_MAXIMO, LIMITE_USD_MAXIMO * usdAGs);
+        let superaLimitesFisicos = (montoEnGsDeControl < gsMinimo || montoEnGsDeControl > gsMaximoEfectivo);
+        let superaReservaGs = (tipoOp === "VENTA" && descuentoGsCalculado > fondosActuales.gs);
+        let superaReservaCrypto = (tipoOp === "COMPRA" && descuentoCryptoCalculado > fondosActuales[criptoRef]);
+
+        if(superaLimitesFisicos || superaReservaGs || superaReservaCrypto) {
+            alerta.style.display = "block";
+            alerta.innerText = (superaReservaGs || superaReservaCrypto) ? "⚠️ Sin reservas suficientes en la web." : `⚠️ Permitido desde ${Math.round(gsMinimo).toLocaleString('de-DE')} Gs hasta ${Math.round(gsMaximoEfectivo).toLocaleString('de-DE')} Gs.`;
+            esMontoValido = false;
+        } else {
+            alerta.style.display = "none"; esMontoValido = true;
+            transaccionPendiente = { tipo: tipoOp, cripto: criptoRef, descuentoGs: descuentoGsCalculado, descuentoCrypto: descuentoCryptoCalculado };
+        }
+        validarFormularioCompleto();
+    }
+
+    function validarWalletEVM(input) {
+        esWalletValida = /^0x[a-fA-F0-9]{40}$/.test(input.value.trim());
+        input.classList.toggle('wallet-alarma', !esWalletValida);
+        const msg = document.getElementById('validadorWalletTxt');
+        msg.innerText = esWalletValida ? "✅ Wallet válida." : "🚨 Dirección inválida.";
+        msg.className = "validador-status " + (esWalletValida ? "valido" : "invalido");
+        validarFormularioCompleto();
+    }
+
+    function alternarTipoIdentificador() {
+        tipoIdentificadorBanco = (tipoIdentificadorBanco === "CUENTA") ? "ALIAS" : "CUENTA";
+        const input = document.getElementById('v_cuenta');
+        const btn = document.getElementById('btnSwitchIdentificador');
+        if (tipoIdentificadorBanco === "ALIAS") {
+            input.placeholder = "Alias de tu cuenta"; btn.innerText = "🔄 Usar Nro de Cuenta en vez de Alias";
+            document.getElementById('v_tipo').classList.add('hidden');
+        } else {
+            input.placeholder = "Nro Cuenta"; btn.innerText = "🔄 Usar Alias en vez de Nro de Cuenta";
+            document.getElementById('v_tipo').classList.remove('hidden');
+        }
+        input.value = ""; validarDatosBancoVendedor();
+    }
+
+    function manejarCambioMedioLocal() {
+        const esOtroBanco = document.getElementById('medio_local').value === "Transferencia bancaria (otro banco)";
+        document.getElementById('v_banco_otro').classList.toggle('hidden', !esOtroBanco);
+        if (!esOtroBanco) document.getElementById('v_banco_otro').value = "";
+        validarDatosBancoVendedor();
+    }
+
+    function validarDatosBancoVendedor() {
+        const ci = document.getElementById('v_cedula').value.replace(/\D/g, "");
+        const ctaRaw = document.getElementById('v_cuenta').value.trim();
+        if (tipoIdentificadorBanco === "CUENTA") document.getElementById('v_cuenta').value = ctaRaw.replace(/\D/g, "");
+        let ctaFinal = document.getElementById('v_cuenta').value.trim();
+        esBancoValido = (tipoIdentificadorBanco === "ALIAS" ? ctaFinal.length >= 3 : ctaFinal.length >= 5) && ci.length >= 5;
+        if (document.getElementById('medio_local').value === "Transferencia bancaria (otro banco)") {
+            esBancoValido = esBancoValido && document.getElementById('v_banco_otro').value.trim().length >= 3;
+        }
+        document.getElementById('validadorBancoTxt').className = "validador-status " + (esBancoValido ? "valido" : "invalido");
+        document.getElementById('validadorBancoTxt').innerText = esBancoValido ? "✅ Datos listos." : "❌ Datos incompletos.";
+        validarFormularioCompleto();
+    }
+
+    function validarFormularioCompleto() {
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        let todoOk = esMontoValido && esCedulaValida && ((tipoOp === "COMPRA" && esWalletValida) || (tipoOp === "VENTA" && esBancoValido));
+        document.getElementById('btnSubmitForm').toggleAttribute('disabled', !todoOk);
+    }
+
+    function copiarDatosEmpresa() { navigator.clipboard.writeText("3652363"); showToast("Alias ueno bank copiado.", "success"); }
+    function copiarWalletEmpresa() { navigator.clipboard.writeText(WALLET_EMPRESA); showToast("Wallet copiada.", "success"); }
+
+    // 🌐 CONEXIÓN SUPABASE: Registrar la orden e iniciar la escucha en tiempo real
+    async function procesarEnvio(event) {
+        event.preventDefault();
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        const nombre = document.getElementById('nombre').value;
+        const cripto = document.getElementById('cripto').value;
+        const montoNum = document.getElementById('monto_input').value;
+        const montoDivisa = document.getElementById('monto_divisa').value;
+        const finalEst = document.getElementById('valEstimado').innerText;
+
+        // Guardamos en la base de datos distribuida
+        const { data, error } = await supabase.from('ordenes').insert([{
+            titular: nombre, tipo: tipoOp, cripto: cripto, monto: `${montoNum} ${montoDivisa}`, resultado: finalEst, estado: 'pendiente'
+        }]).select().single();
+
+        if (error || !data) { showToast("Error al procesar orden remota.", "error"); return; }
+
+        let idOrden = data.id;
+        localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
+        localStorage.setItem('orden_activa_id', idOrden);
+        
+        activarMecanismoBloqueo(15 * 60, idOrden);
+
+        // Envío clásico de WhatsApp
+        let mensaje = `🚨 *Nueva Solicitud #${idOrden}* 🚨\n\nTitular: ${nombre}\nOp: ${tipoOp}\nMoneda: ${cripto}\nMonto: ${montoNum} ${montoDivisa}\nEst: ${finalEst}`;
+        if (tipoOp === "COMPRA") { mensaje += `\nWallet destino: ${document.getElementById('wallet_cliente').value}`; } 
+        else {
+            let medio = document.getElementById('medio_local').value;
+            if (medio === "Transferencia bancaria (otro banco)") medio = document.getElementById('v_banco_otro').value.trim();
+            mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${document.getElementById('v_cuenta').value}\nCI: ${document.getElementById('v_cedula').value}`;
+        }
+
+        window.open(`https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, '_blank');
+    }
+
+    // ⚡ REALTIME: Escucha si el administrador aprueba o cancela la orden en Supabase
+    function activarMecanismoBloqueo(segundos, idOrden) {
+        document.getElementById('lockOverlay').style.display = 'flex';
+        let restante = segundos;
+
+        if(channelOrdenes) channelOrdenes.unsubscribe();
+
+        channelOrdenes = supabase.channel(`orden-${idOrden}`)
+            .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
+                if (payload.new.estado === 'completado') {
+                    finalizarBloqueoExitoso();
+                } else if (payload.new.estado === 'cancelado') {
+                    cancelarPedido();
+                }
+            }).subscribe();
+
+        clearInterval(window.timerInterval);
+        window.timerInterval = setInterval(() => {
+            let mins = Math.floor(restante / 60); let segs = restante % 60;
+            document.getElementById('timer').innerText = `${mins<10?'0':''}${mins}:${segs<10?'0':''}${segs}`;
+            if(--restante < 0) { cancelarPedido(); }
+        }, 1000);
+    }
+
+    function finalizarBloqueoExitoso() {
+        clearInterval(window.timerInterval);
+        if(channelOrdenes) channelOrdenes.unsubscribe();
+        localStorage.removeItem('block_exp');
+        localStorage.removeItem('orden_activa_id');
+        document.getElementById('lockOverlay').style.display = 'none';
+        document.getElementById('exchangeForm').reset();
+        document.getElementById('boxEstimado').classList.add('hidden');
+        document.getElementById('gsHighlightBox').classList.add('hidden');
+        esWalletValida = esBancoValido = esMontoValido = esCedulaValida = false;
+        actualizarEstadoCedula(); manejarCambioMedioLocal();
+        showToast("¡Transacción liberada con éxito por el operador!", "success");
+        guardarOperacionHistorialLocal();
+    }
+
+    async function verificarBloqueosActivos() {
+        const exp = localStorage.getItem('block_exp');
+        const idOrden = localStorage.getItem('orden_activa_id');
+        if(exp && idOrden) {
+            const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
+            if(t > 0) {
+                // Verificar si de por ahí ya se aprobó mientras no estaba
+                const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
+                if (data && data.estado === 'completado') { finalizarBloqueoExitoso(); } 
+                else if (data && data.estado === 'cancelado') { cancelarPedido(); }
+                else { activarMecanismoBloqueo(t, idOrden); }
+            } else { cancelarPedido(); }
+        }
+    }
+
+    async function cancelarPedido() {
+        clearInterval(window.timerInterval);
+        if(channelOrdenes) channelOrdenes.unsubscribe();
+        const idOrden = localStorage.getItem('orden_activa_id');
+        if (idOrden) { await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden); }
+        localStorage.removeItem('block_exp'); localStorage.removeItem('orden_activa_id');
+        document.getElementById('lockOverlay').style.display = 'none';
+        showToast("Orden expirada o cancelada.", "error");
+    }
+
+    // El botón manual del cliente ahora solo avisa, no descuenta saldos (el admin lo hace)
+    async function verificarPinLiberacion() {
+        showToast("Esperando confirmación del operador en red...", "error");
+    }
+
+    function guardarOperacionHistorialLocal() {
+        // Mantiene estética del historial visual
+        actualizarHistorialPantalla();
+    }
+
+    async function actualizarHistorialPantalla() {
+        // Opcional: Jalar últimas 5 órdenes completadas de la BD global para dar ambiente profesional
+        const { data } = await supabase.from('ordenes').select('*').eq('estado', 'completado').order('created_at', { ascending: false }).limit(4);
+        const contenedor = document.getElementById('historialLista');
+        if(!data || data.length === 0) return;
+        contenedor.innerHTML = "";
+        data.forEach(x => {
+            let f = new Date(x.created_at).toLocaleDateString('es-PY');
+            contenedor.innerHTML += `<div class="historial-item"><div><b>${f}</b> - <span style="color:${x.tipo==='COMPRA'?'var(--success)':'var(--danger)'}">${x.tipo}</span></div><div>${x.monto} ➔ <span style="color:var(--primary)">${x.resultado}</span></div></div>`;
+        });
+    }
+</script>

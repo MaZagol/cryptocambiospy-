@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Panel de Control - CryptoCambios PY</title>
+    <style>
+        body { background: #0b0e11; color: #fff; font-family: sans-serif; padding: 20px; }
+        .card { background: #141414; border: 1px solid #2a2a2a; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        h2 { color: #A3E635; margin-top: 0; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #2a2a2a; }
+        input { padding: 8px; background: #181818; border: 1px solid #2a2a2a; color: #fff; border-radius: 4px; width: 100px; }
+        button { background: #A3E635; color: #000; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-danger { background: #FF5A36; color: #fff; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+    <h1>🎛️ Panel de Administración Global</h1>
+
+    <!-- SECCIÓN FONDOS -->
+    <div class="card">
+        <h2>💰 Control de Reservas Globales</h2>
+        <p>Ajustá los fondos disponibles en la web. Los clientes lo verán en tiempo real.</p>
+        <label>Gs: <input type="number" id="f_gs"></label> | 
+        <label>USDC: <input type="number" id="f_usdc"></label> | 
+        <label>USDT: <input type="number" id="f_usdt"></label> | 
+        <label>BNB: <input type="number" id="f_bnb" step="0.01"></label>
+        <button onclick="guardarFondos()" style="margin-left:15px;">💾 Actualizar Reservas</button>
+    </div>
+
+    <!-- SECCIÓN ÓRDENES PENDIENTES -->
+    <div class="card">
+        <h2>⏳ Solicitudes Pendientes</h2>
+        <p>Acá aparecen las órdenes de clientes en vivo. Al dar "Liberar", se le desbloquea la pantalla al cliente y se descuentan tus saldos automáticamente.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Titular</th>
+                    <th>Operación</th>
+                    <th>Moneda</th>
+                    <th>Monto</th>
+                    <th>Retorno Estimado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="listaOrdenes">
+                <tr><td colspan="7">Cargando solicitudes en tiempo real...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+<script>
+    // ⚠️ REEMPLAZA CON TUS MISMOS DATOS DE SUPABASE
+    const SUPABASE_URL = "https://TU_PROYECTO.supabase.co";
+    const SUPABASE_ANON_KEY = "TU_ANON_KEY_AQUÍ";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let fondosActuales = {};
+
+    window.onload = function() {
+        cargarFondos();
+        escucharOrdenesRealtime();
+    };
+
+    async function cargarFondos() {
+        const { data } = await supabase.from('reservas').select('*').eq('id', 1).single();
+        if (data) {
+            fondosActuales = data;
+            document.getElementById('f_gs').value = data.gs;
+            document.getElementById('f_usdc').value = data.usdc;
+            document.getElementById('f_usdt').value = data.usdt;
+            document.getElementById('f_bnb').value = data.bnb;
+        }
+    }
+
+    async function guardarFondos() {
+        const updates = {
+            gs: parseFloat(document.getElementById('f_gs').value),
+            usdc: parseFloat(document.getElementById('f_usdc').value),
+            usdt: parseFloat(document.getElementById('f_usdt').value),
+            bnb: parseFloat(document.getElementById('f_bnb').value),
+        };
+        const { error } = await supabase.from('reservas').update(updates).eq('id', 1);
+        if(!error) alert("Saldos actualizados globalmente.");
+    }
+
+    async function escucharOrdenesRealtime() {
+        // Render inicial
+        renderizarListaOrdenes();
+        
+        // Escucha cambios en vivo en la tabla de ordenes
+        supabase.channel('admin-ordenes')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes' }, () => {
+                renderizarListaOrdenes();
+            }).subscribe();
+    }
+
+    async function renderizarListaOrdenes() {
+        const { data } = await supabase.from('ordenes').select('*').eq('estado', 'pendiente').order('created_at', { ascending: true });
+        const tbody = document.getElementById('listaOrdenes');
+        tbody.innerHTML = "";
+        
+        if(!data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" style="color:gray; font-style:italic;">No hay transacciones pendientes en este momento.</td></tr>`;
+            return;
+        }
+
+        data.forEach(o => {
+            tbody.innerHTML += `
+                <tr>
+                    <td><b>#${o.id}</b></td>
+                    <td>${o.titular}</td>
+                    <td>${o.tipo}</td>
+                    <td>${o.cripto}</td>
+                    <td>${o.monto}</td>
+                    <td>${o.resultado}</td>
+                    <td>
+                        <button onclick="liberarOrden(${o.id}, '${o.tipo}', '${o.cripto}', '${o.monto}', '${o.resultado}')">✅ Liberar Fondos</button>
+                        <button class="btn-danger" onclick="cancelarOrden(${o.id})">❌ Rechazar</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    async function liberarOrden(id, tipo, criptoRaw, montoRaw, resultadoRaw) {
+        if(!confirm(`¿Confirmas que ya verificaste el pago y querés liberar la Orden #${id}?`)) return;
+
+        // 1. Cambiar estado de la orden a completado (desbloquea la app del cliente)
+        await supabase.from('ordenes').update({ estado: 'completado' }).eq('id', id);
+
+        // 2. Descontar de tus saldos según la operación matemática analizada previamente
+        let criptoRef = criptoRaw.includes("BNB") ? "bnb" : (criptoRaw.includes("USDC") ? "usdc" : "usdt");
+        
+        let nuevoSaldoGs = fondosActuales.gs;
+        let nuevoSaldoCrypto = fondosActuales[criptoRef];
+
+        // Lógica de extracción simple para administración automatizada
+        if(tipo === "COMPRA") {
+            let valorCrypto = parseFloat(montoRaw.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+            // Si el cliente pagó Gs, sumamos Gs y restamos Cripto
+            nuevoSaldoCrypto = Math.max(0, nuevoSaldoCrypto - valorCrypto);
+        } else {
+            let valorGs = parseFloat(resultadoRaw.replace(/[^0-9]/g, '')) || 0;
+            // Si el cliente vendió cripto, restamos Gs de tu caja local
+            nuevoSaldoGs = Math.max(0, nuevoSaldoGs - valorGs);
+        }
+
+        await supabase.from('reservas').update({
+            gs: nuevoSaldoGs,
+            [criptoRef]: nuevoSaldoCrypto
+        }).eq('id', 1);
+
+        alert(`Orden #${id} procesada con éxito. Saldos actualizados.`);
+        cargarFondos();
+    }
+
+    async function cancelarOrden(id) {
+        if(!confirm("¿Rechazar esta orden?")) return;
+        await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', id);
+    }
+</script>
+</body>
+</html>
