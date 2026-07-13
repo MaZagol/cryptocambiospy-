@@ -1,235 +1,386 @@
-<!-- Agregamos el SDK de Supabase en el head o antes del script -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-    // Conectando con tu Supabase real de CryptoCambios Py
-    const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co";
-    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CryptoCambios Py</title>
     
-    // Usamos 'var' para prevenir cualquier re-declaración accidental en el resto de tu código
-    var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-</script>
-
-<script>
-    const TELEFONO_WHATSAPP = "595961101538";
-    const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
-
-    let PRECIOS = { "USDC": { compra: 7530, venta: 7630 }, "USDT": { compra: 7520, venta: 7640 }, "BNB": { compra: 4330000, venta: 4390000 } };
-    const LIMITE_USD_MINIMO = { "USDC": 10, "USDT": 10, "BNB": 5 };
-    const LIMITE_GS_MAXIMO = 5000000;
-    const LIMITE_USD_MAXIMO = 1000;
-
-    let modoCalculo = "GASTAR"; 
-    let esWalletValida = false;
-    let esBancoValido = false;
-    let tipoIdentificadorBanco = "CUENTA"; 
-    let esMontoValido = false;
-    let esCedulaValida = false;
-    
-    let fondosActuales = { gs: 0, USDC: 0, USDT: 0, BNB: 0 };
-    let transaccionPendiente = null;
-    let channelOrdenes = null;
-
-    // Función auxiliar de seguridad para evitar que falten IDs en el HTML y rompan la ejecución
-    function setElementText(id, text) {
-        const el = document.getElementById(id);
-        if (el) {
-            el.innerText = text;
+    <!-- Estilos CSS (Podés personalizarlos a tu gusto) -->
+    <style>
+        :root {
+            --primary: #0070f3;
+            --success: #0070f3; /* Cambiar a verde si lo preferís */
+            --danger: #ff0000;
+            --accent-orange: #f5a623;
+            --bg-dark: #121212;
+            --text-light: #ffffff;
         }
-    }
-
-    window.onload = async function() {
-        actualizarPizarraVisual();
-        sincronizarDivisaMonto();
-        await cargarFondosDesdeSupabase();
-        escucharCambiosFondos();
-        manejarCambioModo();
-        verificarBloqueosActivos();
-        actualizarHistorialPantalla();
-        setElementText('anioActual', new Date().getFullYear());
-    };
-
-    function showToast(message, type = "success") {
-        const toast = document.getElementById('toastNotification');
-        if (toast) {
-            toast.innerText = message;
-            toast.className = `toast-notif show ${type}`;
-            setTimeout(() => { toast.classList.remove('show'); }, 3500);
+        body {
+            font-family: Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 20px;
         }
-    }
-
-    function obtenerCriptoRef() {
-        const v = document.getElementById('cripto');
-        if (!v) return "USDT";
-        if (v.value.includes("BNB")) return "BNB";
-        if (v.value.includes("USDC")) return "USDC";
-        return "USDT";
-    }
-
-    function obtenerTasaUsdAGs() { return (PRECIOS.USDT.compra + PRECIOS.USDT.venta) / 2; }
-    function decimalesCripto(criptoRef) { return criptoRef === "BNB" ? 6 : 2; }
-
-    function sincronizarDivisaMonto() {
-        const criptoRef = obtenerCriptoRef();
-        const opt = document.getElementById('opt_monto_cripto');
-        if (opt) {
-            opt.value = criptoRef; 
-            opt.innerText = criptoRef;
+        .hidden { display: none !important; }
+        .validador-status.valido { color: #00ff00; }
+        .validador-status.invalido { color: #ff0000; }
+        .toast-notif {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            padding: 10px 20px;
+            border-radius: 5px;
+            display: none;
         }
-        ejecutarCalculos();
-    }
-
-    function actualizarPizarraVisual() {
-        setElementText('piz-usdc-c', PRECIOS.USDC.compra.toLocaleString('de-DE') + " Gs");
-        setElementText('piz-usdc-v', PRECIOS.USDC.venta.toLocaleString('de-DE') + " Gs");
-        setElementText('piz-usdt-c', PRECIOS.USDT.compra.toLocaleString('de-DE') + " Gs");
-        setElementText('piz-usdt-v', PRECIOS.USDT.venta.toLocaleString('de-DE') + " Gs");
-        setElementText('piz-bnb-c', PRECIOS.BNB.compra.toLocaleString('de-DE') + " Gs");
-        setElementText('piz-bnb-v', PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs");
-    }
-
-    // 🌐 CONEXIÓN SUPABASE: Cargar saldos reales de la empresa
-    async function cargarFondosDesdeSupabase() {
-        const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
-        if (!error && data) {
-            fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
-            renderizarSaldosPantalla();
+        .toast-notif.show { display: block; }
+        .historial-item {
+            border-bottom: 1px solid #333;
+            padding: 10px 0;
         }
-    }
+    </style>
 
-    function renderizarSaldosPantalla() {
-        setElementText('saldo_gs_display', fondosActuales.gs.toLocaleString('de-DE') + " Gs");
-        setElementText('saldo_usdc_display', fondosActuales.USDC.toLocaleString('de-DE') + " USDC");
-        setElementText('saldo_usdt_display', fondosActuales.USDT.toLocaleString('de-DE') + " USDT");
-        setElementText('saldo_bnb_display', fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB");
-    }
+    <!-- Cargamos el SDK de Supabase -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
 
-    // ⚡ REALTIME: Escuchar si cambias los saldos globales desde el admin
-    function escucharCambiosFondos() {
-        supabase.channel('cambios-reservas')
-            .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
-                fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
-                renderizarSaldosPantalla();
-            }).subscribe();
-    }
+    <!-- ================= ESTRUCTURA HTML DE LA WEB ================= -->
+    <div id="app">
+        <h2>Pizarra de Precios</h2>
+        <div>USDC Compra: <span id="piz-usdc-c">Cargando...</span> | Venta: <span id="piz-usdc-v">Cargando...</span></div>
+        <div>USDT Compra: <span id="piz-usdt-c">Cargando...</span> | Venta: <span id="piz-usdt-v">Cargando...</span></div>
+        <div>BNB Compra: <span id="piz-bnb-c">Cargando...</span> | Venta: <span id="piz-bnb-v">Cargando...</span></div>
 
-    function manejarCambioModo() {
-        const typeCompra = document.getElementById('typeCompra');
-        const secCompraCampos = document.getElementById('secCompraCampos');
-        const secVentaCampos = document.getElementById('secVentaCampos');
+        <hr>
+
+        <h2>Saldos Disponibles (Reservas Web)</h2>
+        <div id="saldo_gs_display">0 Gs</div>
+        <div id="saldo_usdc_display">0 USDC</div>
+        <div id="saldo_usdt_display">0 USDT</div>
+        <div id="saldo_bnb_display">0 BNB</div>
+
+        <hr>
+
+        <!-- Formulario de Intercambio -->
+        <form id="exchangeForm" onsubmit="procesarEnvio(event)">
+            <h3>Operación</h3>
+            <label>
+                <input type="radio" name="tipo_op" value="COMPRA" checked onchange="manejarCambioModo()"> Quiero comprar Criptomonedas
+            </label>
+            <label>
+                <input type="radio" name="tipo_op" value="VENTA" onchange="manejarCambioModo()"> Quiero vender Criptomonedas
+            </label>
+
+            <br><br>
+
+            <label>Selecciona Cripto:</label>
+            <select id="cripto" onchange="sincronizarDivisaMonto()">
+                <option value="USDT">USDT (TRC-20)</option>
+                <option value="USDC">USDC (ERC-20)</option>
+                <option value="BNB">BNB (BSC)</option>
+            </select>
+
+            <br><br>
+
+            <label>Monto a transferir:</label>
+            <input type="text" id="monto_input" placeholder="0" oninput="formatearMontoEntrada()">
+            <select id="monto_divisa" onchange="ejecutarCalculos()">
+                <option value="Gs">Gs</option>
+                <option value="$">USD ($)</option>
+                <option id="opt_monto_cripto" value="USDT">USDT</option>
+            </select>
+            <span id="montoEnGsPreview" class="hidden"></span>
+
+            <br><br>
+
+            <!-- Sección de campos según Compra o Venta -->
+            <div id="secCompraCampos">
+                <label>Tu Wallet destino (EVM):</label>
+                <input type="text" id="wallet_cliente" placeholder="0x..." oninput="validarWalletEVM(this)">
+                <span id="validadorWalletTxt" class="validador-status invalido">🚨 Dirección inválida.</span>
+            </div>
+
+            <div id="secVentaCampos" class="hidden">
+                <label>Medio de pago local:</label>
+                <select id="medio_local" onchange="manejarCambioMedioLocal()">
+                    <option value="Ueno Bank">Ueno Bank</option>
+                    <option value="Transferencia bancaria (otro banco)">Otro Banco</option>
+                </select>
+                <input type="text" id="v_banco_otro" class="hidden" placeholder="Nombre de tu banco" oninput="validarDatosBancoVendedor()">
+                
+                <br><br>
+                <button type="button" id="btnSwitchIdentificador" onclick="alternarTipoIdentificador()">🔄 Usar Alias en vez de Nro de Cuenta</button>
+                <input type="text" id="v_cuenta" placeholder="Nro Cuenta" oninput="validarDatosBancoVendedor()">
+                <input type="text" id="v_cedula" placeholder="Cédula de Identidad (CI)" oninput="validarDatosBancoVendedor()">
+                <span id="validadorBancoTxt" class="validador-status invalido">❌ Datos incompletos.</span>
+            </div>
+
+            <br>
+
+            <!-- Botón para subir la foto de la cédula -->
+            <label>Subir foto de tu Cédula:</label>
+            <input type="file" id="cedula_file" accept="image/*" onchange="actualizarEstadoCedula()">
+            <span id="validadorCedulaTxt" class="validador-status invalido">❌ Sin documento cargado</span>
+
+            <br><br>
+
+            <!-- Resumen y alertas -->
+            <div id="boxEstimado" class="hidden">
+                <p>Estimado a recibir: <strong id="valEstimado">0</strong></p>
+                <p>Comisión (1%): <span id="valComision">0</span></p>
+            </div>
+
+            <div id="gsHighlightBox" class="hidden">
+                <p><span id="gsHighlightLabel">VALOR:</span> <strong id="gsHighlightValue">0 Gs</strong></p>
+            </div>
+
+            <p id="alertaLimite" style="color: var(--accent-orange); display: none;"></p>
+
+            <button type="submit" id="btnSubmitForm" disabled>Enviar Solicitud</button>
+        </form>
+
+        <hr>
+
+        <h2>Últimas Operaciones Exitosas</h2>
+        <div id="historialLista">No hay operaciones completadas aún.</div>
+    </div>
+
+    <!-- Pantalla de bloqueo de espera de aprobación -->
+    <div id="lockOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
+        <h2>Procesando tu Operación...</h2>
+        <p>Por favor completá el pago y esperá que el operador confirme la recepción.</p>
+        <p>Tiempo de expiración: <span id="timer" style="font-size:24px; font-weight:bold; color:var(--accent-orange);">15:00</span></p>
+        <button onclick="cancelarPedido()">Cancelar Orden</button>
+    </div>
+
+    <!-- Notificaciones Toast -->
+    <div id="toastNotification" class="toast-notif"></div>
+
+    <!-- ================= CONTROLADOR JAVASCRIPT ================= -->
+    <script>
+        // 1. CONFIGURACIÓN DE SUPABASE - ¡REMPLAZÁ ESTO CON TUS CREDENCIALES REALES!
+        const SUPABASE_URL = "TU_URL_DE_SUPABASE"; 
+        const SUPABASE_ANON_KEY = "TU_NUEVA_CLAVE_ANON";
+
+        var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+        // Variables de lógica
+        const TELEFONO_WHATSAPP = "595961101538";
+        const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
+
+        let PRECIOS = { 
+            "USDC": { compra: 7530, venta: 7630 }, 
+            "USDT": { compra: 7520, venta: 7640 }, 
+            "BNB": { compra: 4330000, venta: 4390000 } 
+        };
+        const LIMITE_USD_MINIMO = { "USDC": 10, "USDT": 10, "BNB": 5 };
+        const LIMITE_GS_MAXIMO = 5000000;
+        const LIMITE_USD_MAXIMO = 1000;
+
+        let modoCalculo = "GASTAR"; 
+        let esWalletValida = false;
+        let esBancoValido = false;
+        let tipoIdentificadorBanco = "CUENTA"; 
+        let esMontoValido = false;
+        let esCedulaValida = false;
         
-        if (typeCompra && secCompraCampos && secVentaCampos) {
-            const esCompra = typeCompra.checked;
-            secCompraCampos.classList.toggle('hidden', !esCompra);
-            secVentaCampos.classList.toggle('hidden', esCompra);
+        let fondosActuales = { gs: 0, USDC: 0, USDT: 0, BNB: 0 };
+        let transaccionPendiente = null;
+        let channelOrdenes = null;
+
+        // Función de seguridad para inyectar textos sin tumbar el script
+        function setElementText(id, text) {
+            const el = document.getElementById(id);
+            if (el) el.innerText = text;
         }
-        ejecutarCalculos();
-    }
 
-    function alternarDireccionCalculo() {
-        modoCalculo = (modoCalculo === "GASTAR") ? "RECIBIR" : "GASTAR";
-        const btn = document.getElementById('btnSwitchModo');
-        if (btn) {
-            btn.innerText = (modoCalculo === "GASTAR") ? "🔄 Cambiar a: Quiero recibir exactamente..." : "🔄 Cambiar a: Quiero gastar...";
-        }
-        ejecutarCalculos();
-    }
+        window.onload = async function() {
+            actualizarPizarraVisual();
+            sincronizarDivisaMonto();
+            await cargarFondosDesdeSupabase();
+            escucharCambiosFondos();
+            manejarCambioModo();
+            verificarBloqueosActivos();
+            actualizarHistorialPantalla();
+        };
 
-    function formatearMontoEntrada() {
-        const input = document.getElementById('monto_input');
-        const divisaEl = document.getElementById('monto_divisa');
-        if (!input || !divisaEl) return;
-        
-        const divisa = divisaEl.value;
-        let pos = input.selectionStart; 
-        let oldLen = input.value.length;
-        
-        if (divisa === "Gs") {
-            let val = input.value.replace(/\D/g, "");
-            input.value = val === "" ? "" : parseInt(val).toLocaleString('de-DE');
-        } else {
-            let val = input.value.replace(/[^0-9.,]/g, '').replace(/\./g, ',');
-            let parts = val.split(','); 
-            if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
-            input.value = val;
-        }
-        input.setSelectionRange(pos + (input.value.length - oldLen), pos + (input.value.length - oldLen));
-        ejecutarCalculos();
-    }
-
-    function obtenerValorNumerico() {
-        const input = document.getElementById('monto_input');
-        const divisaEl = document.getElementById('monto_divisa');
-        if (!input || !divisaEl) return 0;
-        
-        const inputVal = input.value;
-        const divisa = divisaEl.value;
-        if (!inputVal) return 0;
-        return (divisa === "Gs") ? (parseFloat(inputVal.replace(/\./g, '')) || 0) : (parseFloat(inputVal.replace(/\,/g, '.')) || 0);
-    }
-
-    function actualizarEstadoCedula() {
-        const fileInput = document.getElementById('cedula_file');
-        const msg = document.getElementById('validadorCedulaTxt');
-        if (!fileInput || !msg) return;
-        
-        esCedulaValida = fileInput.files && fileInput.files.length > 0;
-        msg.innerText = esCedulaValida ? "✅ Documento cargado." : "❌ Sin documento cargado";
-        msg.className = "validador-status " + (esCedulaValida ? "valido" : "invalido");
-        validarFormularioCompleto();
-    }
-
-    function ejecutarCalculos() {
-        const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-        const divisaSeleccionadaEl = document.getElementById('monto_divisa');
-        if (!tipoOpEl || !divisaSeleccionadaEl) return;
-
-        const tipoOp = tipoOpEl.value;
-        const criptoRef = obtenerCriptoRef();
-        const divisaSeleccionada = divisaSeleccionadaEl.value;
-        let monto = obtenerValorNumerico();
-
-        const box = document.getElementById('boxEstimado');
-        const gsBox = document.getElementById('gsHighlightBox');
-        const txtEst = document.getElementById('valEstimado');
-        const txtCom = document.getElementById('valComision');
-        const alerta = document.getElementById('alertaLimite');
-
-        if(monto <= 0) { 
-            if (box) box.classList.add('hidden'); 
-            if (gsBox) gsBox.classList.add('hidden'); 
-            esMontoValido = false; 
-            validarFormularioCompleto(); 
-            return; 
-        }
-        
-        if (box) box.classList.remove('hidden');
-
-        const tasa = (tipoOp === "COMPRA") ? PRECIOS[criptoRef].venta : PRECIOS[criptoRef].compra;
-        let descuentoGsCalculado = 0; 
-        let descuentoCryptoCalculado = 0; 
-        let montoGsFinal = 0; 
-        let montoEnGsDeControl = 0;
-
-        if (divisaSeleccionada === "Gs") { montoEnGsDeControl = monto; } 
-        else if (divisaSeleccionada === "$") { montoEnGsDeControl = monto * obtenerTasaUsdAGs(); } 
-        else { montoEnGsDeControl = monto * tasa; }
-
-        const previewGs = document.getElementById('montoEnGsPreview');
-        if (previewGs) {
-            if (divisaSeleccionada === "Gs") previewGs.classList.add('hidden');
-            else { 
-                previewGs.innerText = `≈ ${Math.round(montoEnGsDeControl).toLocaleString('de-DE')} Gs`; 
-                previewGs.classList.remove('hidden'); 
+        function showToast(message, type = "success") {
+            const toast = document.getElementById('toastNotification');
+            if (toast) {
+                toast.innerText = message;
+                toast.className = `toast-notif show ${type}`;
+                setTimeout(() => { toast.classList.remove('show'); }, 3500);
             }
         }
 
-        if (tipoOp === "COMPRA") {
-            if (box) {
-                box.style.borderColor = "var(--success)"; 
-                box.style.color = "var(--success)";
+        function obtenerCriptoRef() {
+            const v = document.getElementById('cripto');
+            if (!v) return "USDT";
+            return v.value;
+        }
+
+        function obtenerTasaUsdAGs() { 
+            return (PRECIOS.USDT.compra + PRECIOS.USDT.venta) / 2; 
+        }
+        
+        function decimalesCripto(criptoRef) { 
+            return criptoRef === "BNB" ? 6 : 2; 
+        }
+
+        function sincronizarDivisaMonto() {
+            const criptoRef = obtenerCriptoRef();
+            const opt = document.getElementById('opt_monto_cripto');
+            if (opt) {
+                opt.value = criptoRef; 
+                opt.innerText = criptoRef;
             }
-            if (modoCalculo === "GASTAR") {
+            ejecutarCalculos();
+        }
+
+        function actualizarPizarraVisual() {
+            setElementText('piz-usdc-c', PRECIOS.USDC.compra.toLocaleString('de-DE') + " Gs");
+            setElementText('piz-usdc-v', PRECIOS.USDC.venta.toLocaleString('de-DE') + " Gs");
+            setElementText('piz-usdt-c', PRECIOS.USDT.compra.toLocaleString('de-DE') + " Gs");
+            setElementText('piz-usdt-v', PRECIOS.USDT.venta.toLocaleString('de-DE') + " Gs");
+            setElementText('piz-bnb-c', PRECIOS.BNB.compra.toLocaleString('de-DE') + " Gs");
+            setElementText('piz-bnb-v', PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs");
+        }
+
+        async function cargarFondosDesdeSupabase() {
+            try {
+                const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
+                if (!error && data) {
+                    fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
+                    renderizarSaldosPantalla();
+                } else {
+                    console.error("Error cargando reservas:", error);
+                }
+            } catch (err) {
+                console.error("Error de conexión:", err);
+            }
+        }
+
+        function renderizarSaldosPantalla() {
+            setElementText('saldo_gs_display', fondosActuales.gs.toLocaleString('de-DE') + " Gs");
+            setElementText('saldo_usdc_display', fondosActuales.USDC.toLocaleString('de-DE') + " USDC");
+            setElementText('saldo_usdt_display', fondosActuales.USDT.toLocaleString('de-DE') + " USDT");
+            setElementText('saldo_bnb_display', fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB");
+        }
+
+        function escucharCambiosFondos() {
+            supabase.channel('cambios-reservas')
+                .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
+                    fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
+                    renderizarSaldosPantalla();
+                }).subscribe();
+        }
+
+        function manejarCambioModo() {
+            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
+            const secCompraCampos = document.getElementById('secCompraCampos');
+            const secVentaCampos = document.getElementById('secVentaCampos');
+            
+            if (tipoOpEl && secCompraCampos && secVentaCampos) {
+                const esCompra = tipoOpEl.value === "COMPRA";
+                secCompraCampos.classList.toggle('hidden', !esCompra);
+                secVentaCampos.classList.toggle('hidden', esCompra);
+            }
+            ejecutarCalculos();
+        }
+
+        function formatearMontoEntrada() {
+            const input = document.getElementById('monto_input');
+            const divisaEl = document.getElementById('monto_divisa');
+            if (!input || !divisaEl) return;
+            
+            const divisa = divisaEl.value;
+            let pos = input.selectionStart; 
+            let oldLen = input.value.length;
+            
+            if (divisa === "Gs") {
+                let val = input.value.replace(/\D/g, "");
+                input.value = val === "" ? "" : parseInt(val).toLocaleString('de-DE');
+            } else {
+                let val = input.value.replace(/[^0-9.,]/g, '').replace(/\./g, ',');
+                let parts = val.split(','); 
+                if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
+                input.value = val;
+            }
+            input.setSelectionRange(pos + (input.value.length - oldLen), pos + (input.value.length - oldLen));
+            ejecutarCalculos();
+        }
+
+        function obtenerValorNumerico() {
+            const input = document.getElementById('monto_input');
+            const divisaEl = document.getElementById('monto_divisa');
+            if (!input || !divisaEl) return 0;
+            
+            const inputVal = input.value;
+            const divisa = divisaEl.value;
+            if (!inputVal) return 0;
+            return (divisa === "Gs") ? (parseFloat(inputVal.replace(/\./g, '')) || 0) : (parseFloat(inputVal.replace(/\,/g, '.')) || 0);
+        }
+
+        function actualizarEstadoCedula() {
+            const fileInput = document.getElementById('cedula_file');
+            const msg = document.getElementById('validadorCedulaTxt');
+            if (!fileInput || !msg) return;
+            
+            esCedulaValida = fileInput.files && fileInput.files.length > 0;
+            msg.innerText = esCedulaValida ? "✅ Documento cargado." : "❌ Sin documento cargado";
+            msg.className = "validador-status " + (esCedulaValida ? "valido" : "invalido");
+            validarFormularioCompleto();
+        }
+
+        function ejecutarCalculos() {
+            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
+            const divisaSeleccionadaEl = document.getElementById('monto_divisa');
+            if (!tipoOpEl || !divisaSeleccionadaEl) return;
+
+            const tipoOp = tipoOpEl.value;
+            const criptoRef = obtenerCriptoRef();
+            const divisaSeleccionada = divisaSeleccionadaEl.value;
+            let monto = obtenerValorNumerico();
+
+            const box = document.getElementById('boxEstimado');
+            const gsBox = document.getElementById('gsHighlightBox');
+            const alerta = document.getElementById('alertaLimite');
+
+            if(monto <= 0) { 
+                if (box) box.classList.add('hidden'); 
+                if (gsBox) gsBox.classList.add('hidden'); 
+                esMontoValido = false; 
+                validarFormularioCompleto(); 
+                return; 
+            }
+            
+            if (box) box.classList.remove('hidden');
+
+            const tasa = (tipoOp === "COMPRA") ? PRECIOS[criptoRef].venta : PRECIOS[criptoRef].compra;
+            let descuentoGsCalculado = 0; 
+            let descuentoCryptoCalculado = 0; 
+            let montoGsFinal = 0; 
+            let montoEnGsDeControl = 0;
+
+            if (divisaSeleccionada === "Gs") { montoEnGsDeControl = monto; } 
+            else if (divisaSeleccionada === "$") { montoEnGsDeControl = monto * obtenerTasaUsdAGs(); } 
+            else { montoEnGsDeControl = monto * tasa; }
+
+            const previewGs = document.getElementById('montoEnGsPreview');
+            if (previewGs) {
+                if (divisaSeleccionada === "Gs") previewGs.classList.add('hidden');
+                else { 
+                    previewGs.innerText = `≈ ${Math.round(montoEnGsDeControl).toLocaleString('de-DE')} Gs`; 
+                    previewGs.classList.remove('hidden'); 
+                }
+            }
+
+            if (tipoOp === "COMPRA") {
+                if (box) {
+                    box.style.borderColor = "var(--success)"; 
+                    box.style.color = "var(--success)";
+                }
                 if (divisaSeleccionada === "Gs") {
                     let totalBrutoCripto = monto / tasa; 
                     let comisionCripto = totalBrutoCripto * 0.01; 
@@ -249,282 +400,274 @@
                     montoGsFinal = gsAPagar;
                 }
             } else {
-                let cryptoMonto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
-                let totalBrutoGs = cryptoMonto * tasa; 
-                let comisionGs = totalBrutoGs * 0.01; 
-                let gsAPagar = totalBrutoGs + comisionGs;
-                setElementText('valEstimado', `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs Pagar`); 
-                setElementText('valComision', `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`);
-                descuentoCryptoCalculado = cryptoMonto; 
-                montoGsFinal = gsAPagar;
+                if (box) {
+                    box.style.borderColor = "var(--accent-orange)"; 
+                    box.style.color = "var(--accent-orange)";
+                }
+                let totalBrutoCripto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
+                let totalBrutoGs = totalBrutoCripto * tasa;
+                setElementText('valEstimado', `${Math.round(totalBrutoGs * 0.99).toLocaleString('de-DE')} Gs`);
+                setElementText('valComision', `${Math.round(totalBrutoGs * 0.01).toLocaleString('de-DE')} Gs`);
+                descuentoGsCalculado = totalBrutoGs * 0.99; 
+                montoGsFinal = descuentoGsCalculado;
             }
-        } else {
-            if (box) {
-                box.style.borderColor = "var(--accent-orange)"; 
-                box.style.color = "var(--accent-orange)";
+
+            if (gsBox) {
+                setElementText('gsHighlightLabel', (tipoOp === "COMPRA") ? "VAS A PAGAR" : "VAS A RECIBIR");
+                setElementText('gsHighlightValue', `${Math.round(montoGsFinal).toLocaleString('de-DE')} Gs`);
+                gsBox.classList.remove('hidden');
             }
-            let totalBrutoCripto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
-            let totalBrutoGs = totalBrutoCripto * tasa;
-            setElementText('valEstimado', `${Math.round(totalBrutoGs * 0.99).toLocaleString('de-DE')} Gs`);
-            setElementText('valComision', `${Math.round(totalBrutoGs * 0.01).toLocaleString('de-DE')} Gs`);
-            descuentoGsCalculado = totalBrutoGs * 0.99; 
-            montoGsFinal = descuentoGsCalculado;
+
+            const usdAGs = obtenerTasaUsdAGs();
+            const gsMinimo = LIMITE_USD_MINIMO[criptoRef] * usdAGs;
+            const gsMaximoEfectivo = Math.min(LIMITE_GS_MAXIMO, LIMITE_USD_MAXIMO * usdAGs);
+            let superaLimitesFisicos = (montoEnGsDeControl < gsMinimo || montoEnGsDeControl > gsMaximoEfectivo);
+            let superaReservaGs = (tipoOp === "VENTA" && descuentoGsCalculado > fondosActuales.gs);
+            let superaReservaCrypto = (tipoOp === "COMPRA" && descuentoCryptoCalculado > fondosActuales[criptoRef]);
+
+            if (alerta) {
+                if(superaLimitesFisicos || superaReservaGs || superaReservaCrypto) {
+                    alerta.style.display = "block";
+                    alerta.innerText = (superaReservaGs || superaReservaCrypto) ? "⚠️ Sin reservas suficientes en la web." : `⚠️ Permitido desde ${Math.round(gsMinimo).toLocaleString('de-DE')} Gs hasta ${Math.round(gsMaximoEfectivo).toLocaleString('de-DE')} Gs.`;
+                    esMontoValido = false;
+                } else {
+                    alerta.style.display = "none"; 
+                    esMontoValido = true;
+                    transaccionPendiente = { tipo: tipoOp, cripto: criptoRef, descuentoGs: descuentoGsCalculado, descuentoCrypto: descuentoCryptoCalculado };
+                }
+            }
+            validarFormularioCompleto();
         }
 
-        if (gsBox) {
-            setElementText('gsHighlightLabel', (tipoOp === "COMPRA") ? "VAS A PAGAR" : "VAS A RECIBIR");
-            setElementText('gsHighlightValue', `${Math.round(montoGsFinal).toLocaleString('de-DE')} Gs`);
-            gsBox.classList.remove('hidden');
+        function validarWalletEVM(input) {
+            if (!input) return;
+            esWalletValida = /^0x[a-fA-F0-9]{40}$/.test(input.value.trim());
+            const msg = document.getElementById('validadorWalletTxt');
+            if (msg) {
+                msg.innerText = esWalletValida ? "✅ Wallet válida." : "🚨 Dirección inválida.";
+                msg.className = "validador-status " + (esWalletValida ? "valido" : "invalido");
+            }
+            validarFormularioCompleto();
         }
 
-        const usdAGs = obtenerTasaUsdAGs();
-        const gsMinimo = LIMITE_USD_MINIMO[criptoRef] * usdAGs;
-        const gsMaximoEfectivo = Math.min(LIMITE_GS_MAXIMO, LIMITE_USD_MAXIMO * usdAGs);
-        let superaLimitesFisicos = (montoEnGsDeControl < gsMinimo || montoEnGsDeControl > gsMaximoEfectivo);
-        let superaReservaGs = (tipoOp === "VENTA" && descuentoGsCalculado > fondosActuales.gs);
-        let superaReservaCrypto = (tipoOp === "COMPRA" && descuentoCryptoCalculado > fondosActuales[criptoRef]);
-
-        if (alerta) {
-            if(superaLimitesFisicos || superaReservaGs || superaReservaCrypto) {
-                alerta.style.display = "block";
-                alerta.innerText = (superaReservaGs || superaReservaCrypto) ? "⚠️ Sin reservas suficientes en la web." : `⚠️ Permitido desde ${Math.round(gsMinimo).toLocaleString('de-DE')} Gs hasta ${Math.round(gsMaximoEfectivo).toLocaleString('de-DE')} Gs.`;
-                esMontoValido = false;
+        function alternarTipoIdentificador() {
+            tipoIdentificadorBanco = (tipoIdentificadorBanco === "CUENTA") ? "ALIAS" : "CUENTA";
+            const input = document.getElementById('v_cuenta');
+            const btn = document.getElementById('btnSwitchIdentificador');
+            if (!input) return;
+            
+            if (tipoIdentificadorBanco === "ALIAS") {
+                input.placeholder = "Alias de tu cuenta"; 
+                if (btn) btn.innerText = "🔄 Usar Nro de Cuenta en vez de Alias";
             } else {
-                alerta.style.display = "none"; 
-                esMontoValido = true;
-                transaccionPendiente = { tipo: tipoOp, cripto: criptoRef, descuentoGs: descuentoGsCalculado, descuentoCrypto: descuentoCryptoCalculado };
+                input.placeholder = "Nro Cuenta"; 
+                if (btn) btn.innerText = "🔄 Usar Alias en vez de Nro de Cuenta";
             }
+            input.value = ""; 
+            validarDatosBancoVendedor();
         }
-        validarFormularioCompleto();
-    }
 
-    function validarWalletEVM(input) {
-        if (!input) return;
-        esWalletValida = /^0x[a-fA-F0-9]{40}$/.test(input.value.trim());
-        input.classList.toggle('wallet-alarma', !esWalletValida);
-        const msg = document.getElementById('validadorWalletTxt');
-        if (msg) {
-            msg.innerText = esWalletValida ? "✅ Wallet válida." : "🚨 Dirección inválida.";
-            msg.className = "validador-status " + (esWalletValida ? "valido" : "invalido");
-        }
-        validarFormularioCompleto();
-    }
-
-    function alternarTipoIdentificador() {
-        tipoIdentificadorBanco = (tipoIdentificadorBanco === "CUENTA") ? "ALIAS" : "CUENTA";
-        const input = document.getElementById('v_cuenta');
-        const btn = document.getElementById('btnSwitchIdentificador');
-        const vTipo = document.getElementById('v_tipo');
-        if (!input) return;
-        
-        if (tipoIdentificadorBanco === "ALIAS") {
-            input.placeholder = "Alias de tu cuenta"; 
-            if (btn) btn.innerText = "🔄 Usar Nro de Cuenta en vez de Alias";
-            if (vTipo) vTipo.classList.add('hidden');
-        } else {
-            input.placeholder = "Nro Cuenta"; 
-            if (btn) btn.innerText = "🔄 Usar Alias en vez de Nro de Cuenta";
-            if (vTipo) vTipo.classList.remove('hidden');
-        }
-        input.value = ""; 
-        validarDatosBancoVendedor();
-    }
-
-    function manejarCambioMedioLocal() {
-        const medioLocal = document.getElementById('medio_local');
-        const vBancoOtro = document.getElementById('v_banco_otro');
-        if (!medioLocal || !vBancoOtro) return;
-        
-        const esOtroBanco = medioLocal.value === "Transferencia bancaria (otro banco)";
-        vBancoOtro.classList.toggle('hidden', !esOtroBanco);
-        if (!esOtroBanco) vBancoOtro.value = "";
-        validarDatosBancoVendedor();
-    }
-
-    function validarDatosBancoVendedor() {
-        const vCedula = document.getElementById('v_cedula');
-        const vCuenta = document.getElementById('v_cuenta');
-        const medioLocal = document.getElementById('medio_local');
-        const vBancoOtro = document.getElementById('v_banco_otro');
-        if (!vCedula || !vCuenta || !medioLocal) return;
-
-        const ci = vCedula.value.replace(/\D/g, "");
-        const ctaRaw = vCuenta.value.trim();
-        
-        if (tipoIdentificadorBanco === "CUENTA") vCuenta.value = ctaRaw.replace(/\D/g, "");
-        let ctaFinal = vCuenta.value.trim();
-        
-        esBancoValido = (tipoIdentificadorBanco === "ALIAS" ? ctaFinal.length >= 3 : ctaFinal.length >= 5) && ci.length >= 5;
-        if (medioLocal.value === "Transferencia bancaria (otro banco)" && vBancoOtro) {
-            esBancoValido = esBancoValido && vBancoOtro.value.trim().length >= 3;
-        }
-        
-        const msg = document.getElementById('validadorBancoTxt');
-        if (msg) {
-            msg.className = "validador-status " + (esBancoValido ? "valido" : "invalido");
-            msg.innerText = esBancoValido ? "✅ Datos listos." : "❌ Datos incompletos.";
-        }
-        validarFormularioCompleto();
-    }
-
-    function validarFormularioCompleto() {
-        const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-        if (!tipoOpEl) return;
-        
-        const tipoOp = tipoOpEl.value;
-        let todoOk = esMontoValido && esCedulaValida && ((tipoOp === "COMPRA" && esWalletValida) || (tipoOp === "VENTA" && esBancoValido));
-        
-        const btnSubmit = document.getElementById('btnSubmitForm');
-        if (btnSubmit) {
-            btnSubmit.toggleAttribute('disabled', !todoOk);
-        }
-    }
-
-    function copiarDatosEmpresa() { navigator.clipboard.writeText("3652363"); showToast("Alias ueno bank copiado.", "success"); }
-    function copiarWalletEmpresa() { navigator.clipboard.writeText(WALLET_EMPRESA); showToast("Wallet copiada.", "success"); }
-
-    // 🌐 CONEXIÓN SUPABASE: Registrar la orden e iniciar la escucha en tiempo real
-    async function procesarEnvio(event) {
-        event.preventDefault();
-        const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-        const nombreEl = document.getElementById('nombre');
-        const criptoEl = document.getElementById('cripto');
-        const montoInputEl = document.getElementById('monto_input');
-        const montoDivisaEl = document.getElementById('monto_divisa');
-        const valEstimadoEl = document.getElementById('valEstimado');
-        if (!tipoOpEl || !nombreEl || !criptoEl || !montoInputEl || !montoDivisaEl || !valEstimadoEl) return;
-
-        const tipoOp = tipoOpEl.value;
-        const nombre = nombreEl.value;
-        const cripto = criptoEl.value;
-        const montoNum = montoInputEl.value;
-        const montoDivisa = montoDivisaEl.value;
-        const finalEst = valEstimadoEl.innerText;
-
-        // Guardamos en la base de datos distribuida
-        const { data, error } = await supabase.from('ordenes').insert([{
-            titular: nombre, tipo: tipoOp, cripto: cripto, monto: `${montoNum} ${montoDivisa}`, resultado: finalEst, estado: 'pendiente'
-        }]).select().single();
-
-        if (error || !data) { showToast("Error al procesar orden remota.", "error"); return; }
-
-        let idOrden = data.id;
-        localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
-        localStorage.setItem('orden_activa_id', idOrden);
-        
-        activarMecanismoBloqueo(15 * 60, idOrden);
-
-        // Envío clásico de WhatsApp
-        let mensaje = `🚨 *Nueva Solicitud #${idOrden}* 🚨\n\nTitular: ${nombre}\nOp: ${tipoOp}\nMoneda: ${cripto}\nMonto: ${montoNum} ${montoDivisa}\nEst: ${finalEst}`;
-        if (tipoOp === "COMPRA") { 
-            const walletCli = document.getElementById('wallet_cliente');
-            if (walletCli) mensaje += `\nWallet destino: ${walletCli.value}`; 
-        } else {
+        function manejarCambioMedioLocal() {
             const medioLocal = document.getElementById('medio_local');
             const vBancoOtro = document.getElementById('v_banco_otro');
-            const vCuenta = document.getElementById('v_cuenta');
-            const vCedula = document.getElementById('v_cedula');
+            if (!medioLocal || !vBancoOtro) return;
             
-            let medio = medioLocal ? medioLocal.value : "";
-            if (medio === "Transferencia bancaria (otro banco)" && vBancoOtro) medio = vBancoOtro.value.trim();
-            mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${vCuenta ? vCuenta.value : ""}\nCI: ${vCedula ? vCedula.value : ""}`;
+            const esOtroBanco = medioLocal.value === "Transferencia bancaria (otro banco)";
+            vBancoOtro.classList.toggle('hidden', !esOtroBanco);
+            if (!esOtroBanco) vBancoOtro.value = "";
+            validarDatosBancoVendedor();
         }
 
-        window.open(`https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, '_blank');
-    }
+        function validarDatosBancoVendedor() {
+            const vCedula = document.getElementById('v_cedula');
+            const vCuenta = document.getElementById('v_cuenta');
+            const medioLocal = document.getElementById('medio_local');
+            const vBancoOtro = document.getElementById('v_banco_otro');
+            if (!vCedula || !vCuenta || !medioLocal) return;
 
-    // ⚡ REALTIME: Escucha si el administrador aprueba o cancela la orden en Supabase
-    function activarMecanismoBloqueo(segundos, idOrden) {
-        const overlay = document.getElementById('lockOverlay');
-        if (overlay) overlay.style.display = 'flex';
-        let restante = segundos;
+            const ci = vCedula.value.replace(/\D/g, "");
+            const ctaRaw = vCuenta.value.trim();
+            
+            if (tipoIdentificadorBanco === "CUENTA") vCuenta.value = ctaRaw.replace(/\D/g, "");
+            let ctaFinal = vCuenta.value.trim();
+            
+            esBancoValido = (tipoIdentificadorBanco === "ALIAS" ? ctaFinal.length >= 3 : ctaFinal.length >= 5) && ci.length >= 5;
+            if (medioLocal.value === "Transferencia bancaria (otro banco)" && vBancoOtro) {
+                esBancoValido = esBancoValido && vBancoOtro.value.trim().length >= 3;
+            }
+            
+            const msg = document.getElementById('validadorBancoTxt');
+            if (msg) {
+                msg.className = "validador-status " + (esBancoValido ? "valido" : "invalido");
+                msg.innerText = esBancoValido ? "✅ Datos listos." : "❌ Datos incompletos.";
+            }
+            validarFormularioCompleto();
+        }
 
-        if(channelOrdenes) channelOrdenes.unsubscribe();
+        function validarFormularioCompleto() {
+            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
+            if (!tipoOpEl) return;
+            
+            const tipoOp = tipoOpEl.value;
+            let todoOk = esMontoValido && esCedulaValida && ((tipoOp === "COMPRA" && esWalletValida) || (tipoOp === "VENTA" && esBancoValido));
+            
+            const btnSubmit = document.getElementById('btnSubmitForm');
+            if (btnSubmit) {
+                btnSubmit.toggleAttribute('disabled', !todoOk);
+            }
+        }
 
-        channelOrdenes = supabase.channel(`orden-${idOrden}`)
-            .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
-                if (payload.new.estado === 'completado') {
-                    finalizarBloqueoExitoso();
-                } else if (payload.new.estado === 'cancelado') {
-                    cancelarPedido();
+        async function procesarEnvio(event) {
+            event.preventDefault();
+            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
+            const criptoEl = document.getElementById('cripto');
+            const montoInputEl = document.getElementById('monto_input');
+            const montoDivisaEl = document.getElementById('monto_divisa');
+            const valEstimadoEl = document.getElementById('valEstimado');
+            if (!tipoOpEl || !criptoEl || !montoInputEl || !montoDivisaEl || !valEstimadoEl) return;
+
+            const tipoOp = tipoOpEl.value;
+            const cripto = criptoEl.value;
+            const montoNum = montoInputEl.value;
+            const montoDivisa = montoDivisaEl.value;
+            const finalEst = valEstimadoEl.innerText;
+
+            // Insertamos la orden en Supabase
+            const { data, error } = await supabase.from('ordenes').insert([{
+                titular: "Cliente Web", 
+                tipo: tipoOp, 
+                cripto: cripto, 
+                monto: `${montoNum} ${montoDivisa}`, 
+                resultado: finalEst, 
+                estado: 'pendiente'
+            }]).select().single();
+
+            if (error || !data) { 
+                showToast("Error al procesar orden remota.", "error"); 
+                console.error(error);
+                return; 
+            }
+
+            let idOrden = data.id;
+            localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
+            localStorage.setItem('orden_activa_id', idOrden);
+            
+            activarMecanismoBloqueo(15 * 60, idOrden);
+
+            let mensaje = `🚨 *Nueva Solicitud #${idOrden}* 🚨\n\nOp: ${tipoOp}\nMoneda: ${cripto}\nMonto: ${montoNum} ${montoDivisa}\nEst: ${finalEst}`;
+            if (tipoOp === "COMPRA") { 
+                const walletCli = document.getElementById('wallet_cliente');
+                if (walletCli) mensaje += `\nWallet destino: ${walletCli.value}`; 
+            } else {
+                const medioLocal = document.getElementById('medio_local');
+                const vBancoOtro = document.getElementById('v_banco_otro');
+                const vCuenta = document.getElementById('v_cuenta');
+                const vCedula = document.getElementById('v_cedula');
+                
+                let medio = medioLocal ? medioLocal.value : "";
+                if (medio === "Transferencia bancaria (otro banco)" && vBancoOtro) medio = vBancoOtro.value.trim();
+                mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${vCuenta ? vCuenta.value : ""}\nCI: ${vCedula ? vCedula.value : ""}`;
+            }
+
+            window.open(`https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, '_blank');
+        }
+
+        function activarMecanismoBloqueo(segundos, idOrden) {
+            const overlay = document.getElementById('lockOverlay');
+            if (overlay) overlay.style.display = 'flex';
+            let restante = segundos;
+
+            if(channelOrdenes) channelOrdenes.unsubscribe();
+
+            channelOrdenes = supabase.channel(`orden-${idOrden}`)
+                .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
+                    if (payload.new.estado === 'completado') {
+                        finalizarBloqueoExitoso();
+                    } else if (payload.new.estado === 'cancelado') {
+                        cancelarPedido();
+                    }
+                }).subscribe();
+
+            clearInterval(window.timerInterval);
+            window.timerInterval = setInterval(() => {
+                let mins = Math.floor(restante / 60); 
+                let segs = restante % 60;
+                setElementText('timer', `${mins < 10 ? '0' : ''}${mins}:${segs < 10 ? '0' : ''}${segs}`);
+                if(--restante < 0) { cancelarPedido(); }
+            }, 1000);
+        }
+
+        function finalizarBloqueoExitoso() {
+            clearInterval(window.timerInterval);
+            if(channelOrdenes) channelOrdenes.unsubscribe();
+            localStorage.removeItem('block_exp');
+            localStorage.removeItem('orden_activa_id');
+            
+            const overlay = document.getElementById('lockOverlay');
+            if (overlay) overlay.style.display = 'none';
+            
+            const form = document.getElementById('exchangeForm');
+            if (form) form.reset();
+            
+            const box = document.getElementById('boxEstimado');
+            const gsBox = document.getElementById('gsHighlightBox');
+            if (box) box.classList.add('hidden');
+            if (gsBox) gsBox.classList.add('hidden');
+            
+            esWalletValida = esBancoValido = esMontoValido = esCedulaValida = false;
+            actualizarEstadoCedula(); 
+            manejarCambioMedioLocal();
+            showToast("¡Transacción liberada con éxito!", "success");
+            actualizarHistorialPantalla();
+        }
+
+        async function verificarBloqueosActivos() {
+            const exp = localStorage.getItem('block_exp');
+            const idOrden = localStorage.getItem('orden_activa_id');
+            if(exp && idOrden) {
+                const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
+                if(t > 0) {
+                    const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
+                    if (data && data.estado === 'completado') { finalizarBloqueoExitoso(); } 
+                    else if (data && data.estado === 'cancelado') { cancelarPedido(); }
+                    else { activarMecanismoBloqueo(t, idOrden); }
+                } else { cancelarPedido(); }
+            }
+        }
+
+        async function cancelarPedido() {
+            clearInterval(window.timerInterval);
+            if(channelOrdenes) channelOrdenes.unsubscribe();
+            const idOrden = localStorage.getItem('orden_activa_id');
+            if (idOrden) { 
+                await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden); 
+            }
+            localStorage.removeItem('block_exp'); 
+            localStorage.removeItem('orden_activa_id');
+            
+            const overlay = document.getElementById('lockOverlay');
+            if (overlay) overlay.style.display = 'none';
+            showToast("Orden expirada o cancelada.", "error");
+        }
+
+        async function actualizarHistorialPantalla() {
+            try {
+                const { data } = await supabase.from('ordenes').select('*').eq('estado', 'completado').order('created_at', { ascending: false }).limit(4);
+                const contenedor = document.getElementById('historialLista');
+                if(!contenedor) return;
+                if(!data || data.length === 0) {
+                    contenedor.innerHTML = "No hay operaciones completadas aún.";
+                    return;
                 }
-            }).subscribe();
-
-        clearInterval(window.timerInterval);
-        window.timerInterval = setInterval(() => {
-            let mins = Math.floor(restante / 60); let segs = restante % 60;
-            setElementText('timer', `${mins<10?'0':''}${mins}:${segs<10?'0':''}${segs}`);
-            if(--restante < 0) { cancelarPedido(); }
-        }, 1000);
-    }
-
-    function finalizarBloqueoExitoso() {
-        clearInterval(window.timerInterval);
-        if(channelOrdenes) channelOrdenes.unsubscribe();
-        localStorage.removeItem('block_exp');
-        localStorage.removeItem('orden_activa_id');
-        
-        const overlay = document.getElementById('lockOverlay');
-        if (overlay) overlay.style.display = 'none';
-        
-        const form = document.getElementById('exchangeForm');
-        if (form) form.reset();
-        
-        const box = document.getElementById('boxEstimado');
-        const gsBox = document.getElementById('gsHighlightBox');
-        if (box) box.classList.add('hidden');
-        if (gsBox) gsBox.classList.add('hidden');
-        
-        esWalletValida = esBancoValido = esMontoValido = esCedulaValida = false;
-        actualizarEstadoCedula(); 
-        manejarCambioMedioLocal();
-        showToast("¡Transacción liberada con éxito por el operador!", "success");
-        guardarOperacionHistorialLocal();
-    }
-
-    async function verificarBloqueosActivos() {
-        const exp = localStorage.getItem('block_exp');
-        const idOrden = localStorage.getItem('orden_activa_id');
-        if(exp && idOrden) {
-            const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
-            if(t > 0) {
-                const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
-                if (data && data.estado === 'completado') { finalizarBloqueoExitoso(); } 
-                else if (data && data.estado === 'cancelado') { cancelarPedido(); }
-                else { activarMecanismoBloqueo(t, idOrden); }
-            } else { cancelarPedido(); }
+                contenedor.innerHTML = "";
+                data.forEach(x => {
+                    let f = new Date(x.created_at).toLocaleDateString('es-PY');
+                    contenedor.innerHTML += `<div class="historial-item"><div><b>${f}</b> - <span style="color:${x.tipo==='COMPRA'?'var(--success)':'var(--danger)'}">${x.tipo}</span></div><div>${x.monto} ➔ <span style="color:var(--primary)">${x.resultado}</span></div></div>`;
+                });
+            } catch (err) {
+                console.error("Error al renderizar historial:", err);
+            }
         }
-    }
-
-    async function cancelarPedido() {
-        clearInterval(window.timerInterval);
-        if(channelOrdenes) channelOrdenes.unsubscribe();
-        const idOrden = localStorage.getItem('orden_activa_id');
-        if (idOrden) { await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden); }
-        localStorage.removeItem('block_exp'); 
-        localStorage.removeItem('orden_activa_id');
-        
-        const overlay = document.getElementById('lockOverlay');
-        if (overlay) overlay.style.display = 'none';
-        showToast("Orden expirada o cancelada.", "error");
-    }
-
-    async function verificarPinLiberacion() {
-        showToast("Esperando confirmación del operador en red...", "error");
-    }
-
-    function guardarOperacionHistorialLocal() {
-        actualizarHistorialPantalla();
-    }
-
-    async function actualizarHistorialPantalla() {
-        const { data } = await supabase.from('ordenes').select('*').eq('estado', 'completado').order('created_at', { ascending: false }).limit(4);
-        const contenedor = document.getElementById('historialLista');
-        if(!data || data.length === 0 || !contenedor) return;
-        contenedor.innerHTML = "";
-        data.forEach(x => {
-            let f = new Date(x.created_at).toLocaleDateString('es-PY');
-            contenedor.innerHTML += `<div class="historial-item"><div><b>${f}</b> - <span style="color:${x.tipo==='COMPRA'?'var(--success)':'var(--danger)'}">${x.tipo}</span></div><div>${x.monto} ➔ <span style="color:var(--primary)">${x.resultado}</span></div></div>`;
-        });
-    }
-</script>
+    </script>
+</body>
+</html>
