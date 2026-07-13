@@ -1,12 +1,12 @@
-<!-- Agregamos el SDK de Supabase en el head o antes del script -->
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
 <script>
-    // ⚠️ REEMPLAZA CON TUS DATOS DE SUPABASE (Los encontrás en Settings > API)
+   
     const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
     
-    // Solución al conflicto: creamos una variable con otro nombre inicial, y luego la asignamos globalmente
+   
     const supabaseConnection = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 </script>
 
