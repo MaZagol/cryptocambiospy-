@@ -3,671 +3,1149 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoCambios Py</title>
-    
-    <!-- Estilos CSS base -->
+    <title>CryptoCambios PY - Sistema Profesional v9.6 (Conectado)</title>
     <style>
         :root {
-            --primary: #0070f3;
-            --success: #00ff00;
-            --danger: #ff0000;
-            --accent-orange: #f5a623;
-            --bg-dark: #121212;
-            --text-light: #ffffff;
+            --bg-color: #000000;
+            --card-bg: #141414;
+            --text-color: #f2f2f2;
+            --text-muted: #8a8a8a;
+            --primary: #A3E635;
+            --primary-hover: #8FCB27;
+            --success: #A3E635;
+            --danger: #FF5A36;
+            --accent-orange: #FF7A1A;
+            --border-color: #2a2a2a;
+            --input-bg: #181818;
+            --alarm-bg: rgba(255, 90, 54, 0.15);
+            --whatsapp-color: #25D366;
         }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+        }
+
         body {
-            font-family: Arial, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            margin: 20px;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(rgba(255,255,255,0.07) 1px, transparent 1px);
+            background-size: 26px 26px;
+            color: var(--text-color);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            position: relative;
         }
-        .hidden { display: none !important; }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: rgba(16, 16, 16, 0.9);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            padding: 24px;
+            box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .brand-logo-wrap {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            width: 62px;
+            height: 62px;
+            z-index: 2;
+        }
+        .brand-logo-wrap::before {
+            content: "";
+            position: absolute;
+            inset: -8px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(163,230,53,0.4) 0%, rgba(163,230,53,0) 70%);
+            filter: blur(2px);
+            animation: logoGlowPulse 2.6s ease-in-out infinite;
+        }
+        .brand-logo-wrap::after {
+            content: "";
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 1px dashed rgba(163,230,53,0.5);
+            animation: logoRingSpin 14s linear infinite;
+        }
+        .brand-logo {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            filter: drop-shadow(0 0 6px rgba(163,230,53,0.55));
+        }
+        @keyframes logoGlowPulse {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.1); }
+        }
+        @keyframes logoRingSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            margin-top: 15px;
+        }
+
+        .header h1 { font-size: 24px; margin-bottom: 6px; }
+        .header h1 span { color: var(--primary); }
+        .header p { color: var(--text-muted); font-size: 13px; }
+
+        .status-online {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: var(--success);
+            font-weight: bold;
+            margin-left: 6px;
+            vertical-align: middle;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.6);
+            animation: pulso-online 1.6s infinite;
+        }
+        @keyframes pulso-online {
+            0% { box-shadow: 0 0 0 0 rgba(163, 230, 53, 0.6); }
+            70% { box-shadow: 0 0 0 7px rgba(163, 230, 53, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(163, 230, 53, 0); }
+        }
+
+        .status-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            background: rgba(163, 230, 53, 0.05);
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            font-size: 12px;
+            border: 1px solid rgba(163, 230, 53, 0.2);
+            text-align: center;
+        }
+        .status-badge { font-weight: bold; }
+        .status-badge span { color: var(--text-muted); font-weight: normal; display: block; margin-bottom: 2px; }
+        .status-badge b { font-size: 14px; color: var(--success); }
+
+        .pizarra {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px;
+            margin-bottom: 20px;
+        }
+
+        .grid-precios { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
+        .precio-card {
+            background: rgba(0,0,0,0.15);
+            padding: 10px 6px;
+            border-radius: 8px;
+            text-align: center;
+            border-left: 4px solid var(--border-color);
+        }
+        .precio-card.base { border-left-color: #2775CA; }
+        .precio-card.bsc { border-left-color: #26A17B; }
+        .precio-card.bnbchain { border-left-color: #F3BA2F; }
+
+        .coin-title { font-size: 14px; font-weight: bold; }
+        .coin-net { font-size: 9px; color: var(--text-muted); margin-bottom: 6px; font-weight: bold;}
+
+        .row-p { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 2px; }
+        .row-p span.up { color: var(--success); font-weight: bold; }
+        .row-p span.down { color: var(--danger); font-weight: bold; }
+
+        .form-group { margin-bottom: 16px; position: relative; }
+        label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+        
+        input, select, textarea {
+            width: 100%;
+            padding: 12px;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-size: 14px;
+            transition: all 0.2s;
+        }
+
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); }
+        input[type="file"] { background: rgba(255, 255, 255, 0.02); border: 1px dashed var(--border-color); cursor: pointer; padding: 10px; }
+
+        .wallet-alarma {
+            border-color: var(--danger) !important;
+            background-color: var(--alarm-bg) !important;
+            box-shadow: 0 0 8px rgba(255, 90, 54, 0.4);
+        }
+
+        .validador-status { font-size: 11px; margin-top: 5px; font-weight: bold; display: flex; align-items: center; gap: 4px; }
         .validador-status.valido { color: var(--success); }
-        .validador-status.invalido { color: var(--danger); }
+        .validador-status.invalido { color: var(--danger); background: rgba(255,90,54,0.05); padding: 4px 8px; border-radius: 4px; border: 1px solid rgba(255,90,54,0.2); }
+
+        .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .radio-btn input { position: absolute; opacity: 0; }
+        .radio-label {
+            display: block;
+            text-align: center;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .radio-btn input:checked + .radio-label.compra { border-color: var(--success); color: var(--success); background: rgba(163, 230, 53, 0.08); }
+        .radio-btn input:checked + .radio-label.venta { border-color: var(--accent-orange); color: var(--accent-orange); background: rgba(255, 122, 26, 0.08); }
+
+        .monto-group { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; }
+        .switch-modo { font-size: 11px; color: var(--primary); cursor: pointer; display: inline-block; margin-bottom: 6px; font-weight: bold; text-decoration: underline; }
+
+        .estimacion-box { background: rgba(163, 230, 53, 0.08); border: 1px solid var(--success); padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
+        .est-row { display: flex; justify-content: space-between; font-weight: bold; }
+
+        .qr-box { background: rgba(255,255,255,0.01); border: 1px dashed var(--primary); padding: 12px; border-radius: 8px; margin-top: 6px; }
+        .btn-action { width: 100%; background: var(--border-color); color: var(--text-color); border: none; padding: 10px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; }
+
+        .limite-alerta { background: rgba(255, 90, 54, 0.1); border: 1px solid var(--danger); color: var(--danger); padding: 10px; border-radius: 8px; font-size: 12px; margin-top: 8px; font-weight: bold; display: none; }
+
+        .btn-submit { width: 100%; background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-submit:disabled { background: #474f59; color: #848e9c; cursor: not-allowed; }
+
+        .historial-section { margin-top: 25px; border-top: 1px solid var(--border-color); padding-top: 15px; }
+        .historial-title { font-size: 12px; font-weight: bold; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px;}
+        .historial-item { background: rgba(0,0,0,0.05); padding: 8px; border-radius: 6px; font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 6px; border: 1px solid var(--border-color); }
+
+        .lock-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(11, 14, 17, 0.97); border-radius: 16px; z-index: 100; flex-direction: column; justify-content: center; align-items: center; padding: 24px; text-align: center; }
+        .lock-box { background: var(--card-bg); border: 1px solid var(--border-color); padding: 20px; border-radius: 12px; width: 100%; }
+        .timer-display { font-size: 32px; font-family: monospace; color: var(--danger); font-weight: bold; margin: 10px 0; }
+
+        .info-txt { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+        .footer-copyright {
+            text-align: center;
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 24px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .gs-highlight-box {
+            position: relative;
+            margin: 14px 0;
+            padding: 20px 16px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(163,230,53,0.14), rgba(11,14,17,0.75));
+            border: 1px solid rgba(163,230,53,0.55);
+            text-align: center;
+            overflow: hidden;
+            animation: gsPulseGlow 2.4s ease-in-out infinite;
+        }
+        .gs-highlight-box::before {
+            content: "";
+            position: absolute;
+            top: 0; left: -60%;
+            width: 40%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(163,230,53,0.18), transparent);
+            animation: gsScan 3.4s linear infinite;
+        }
+        .gs-highlight-box::after {
+            content: "";
+            position: absolute;
+            inset: 6px;
+            border: 1px solid rgba(163,230,53,0.22);
+            border-radius: 10px;
+            pointer-events: none;
+        }
+        .gs-highlight-label {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--primary);
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+            position: relative;
+        }
+        .gs-highlight-value {
+            font-family: 'Courier New', monospace;
+            font-size: 32px;
+            font-weight: 900;
+            color: #fff6d9;
+            letter-spacing: 1px;
+            text-shadow: 0 0 12px rgba(163,230,53,0.55), 0 0 26px rgba(163,230,53,0.28);
+            position: relative;
+        }
+
         .toast-notif {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #333;
-            padding: 10px 20px;
-            border-radius: 5px;
-            display: none;
+            bottom: 90px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: #1e1e1e;
+            border: 1px solid var(--border-color);
+            color: #fff;
+            padding: 10px 18px;
+            border-radius: 30px;
+            font-size: 12px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 9999;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
         }
-        .toast-notif.show { display: block; }
-        .historial-item {
-            border-bottom: 1px solid #333;
-            padding: 10px 0;
+        .toast-notif.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .toast-notif.success { border-color: var(--success); }
+        .toast-notif.error { border-color: var(--danger); }
+
+        .whatsapp-float {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 54px;
+            height: 54px;
+            background-color: var(--whatsapp-color);
+            border-radius: 50%;
+            box-shadow: 0px 4px 14px rgba(0, 0, 0, 0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            cursor: pointer;
+            transition: transform 0.2s ease-in-out, background-color 0.2s;
+            text-decoration: none;
         }
+        .whatsapp-float::before {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(37,211,102,0.3) 0%, rgba(37,211,102,0) 70%);
+            animation: logoGlowPulse 2s ease-in-out infinite;
+            z-index: -1;
+        }
+        .whatsapp-float:hover {
+            transform: scale(1.08);
+            background-color: #20ba56;
+        }
+        .whatsapp-float svg { width: 28px; height: 28px; fill: white; }
+
+        @keyframes gsPulseGlow {
+            0%, 100% { box-shadow: 0 0 8px rgba(163,230,53,0.22), inset 0 0 20px rgba(163,230,53,0.05); }
+            50% { box-shadow: 0 0 22px rgba(163,230,53,0.5), inset 0 0 30px rgba(163,230,53,0.12); }
+        }
+        @keyframes gsScan {
+            0% { left: -60%; }
+            100% { left: 120%; }
+        }
+        .hidden { display: none !important; }
     </style>
 
-    <!-- Cargamos el SDK de Supabase de forma segura -->
+    <!-- SDK Oficial de Supabase -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
-    <!-- ================= ESTRUCTURA HTML DE LA WEB ================= -->
-    <div id="app">
-        <h2>Pizarra de Precios</h2>
-        <div>USDC Compra: <span id="piz-usdc-c">Cargando...</span> | Venta: <span id="piz-usdc-v">Cargando...</span></div>
-        <div>USDT Compra: <span id="piz-usdt-c">Cargando...</span> | Venta: <span id="piz-usdt-v">Cargando...</span></div>
-        <div>BNB Compra: <span id="piz-bnb-c">Cargando...</span> | Venta: <span id="piz-bnb-v">Cargando...</span></div>
+<div class="container" id="mainContainer">
+    <div class="brand-logo-wrap">
+        <svg class="brand-logo" viewBox="0 0 220 220" role="img" aria-label="Logo CryptoCambios PY">
+            <path d="M110,60 C150,66 158,102 128,116 C108,124 90,108 96,88 C100,72 110,60 110,60 Z" fill="#ffcc00"/>
+            <path d="M110,160 C70,154 62,118 92,104 C112,96 130,112 124,132 C120,148 110,160 110,160 Z" fill="#0b0e11" stroke="#ffcc00" stroke-width="1.2"/>
+            <path d="M100,63 L90,42 L114,53 Z" fill="#ffcc00"/>
+            <path d="M120,157 L130,178 L106,167 Z" fill="#0b0e11" stroke="#ffcc00" stroke-width="1.2"/>
+            <circle cx="132" cy="90" r="4" fill="#0b0e11"/>
+            <circle cx="88" cy="130" r="4" fill="#ffcc00"/>
+        </svg>
+    </div>
 
-        <hr>
+    <!-- PANTALLA DE BLOQUEO POR PROCESO ACTIVO (Sincronizada con Supabase) -->
+    <div id="lockOverlay" class="lock-overlay">
+        <div class="lock-box">
+            <h3 style="color: var(--primary); margin-bottom: 8px;">⏳ Transacción en Proceso</h3>
+            <p style="font-size: 12px; color: var(--text-muted);">Completá la operación en WhatsApp. Una vez confirmada por el operador, la pantalla se desbloqueará automáticamente.</p>
+            <div id="timer" class="timer-display">15:00</div>
+            
+            <button type="button" style="background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 12px; width:100%; border-radius: 8px; font-weight: bold; cursor: pointer;" onclick="cancelarPedido()">❌ CANCELAR SOLICITUD</button>
+        </div>
+    </div>
 
-        <h2>Saldos Disponibles (Reservas Web)</h2>
-        <div id="saldo_gs_display">0 Gs</div>
-        <div id="saldo_usdc_display">0 USDC</div>
-        <div id="saldo_usdt_display">0 USDT</div>
-        <div id="saldo_bnb_display">0 BNB</div>
+    <div class="header">
+        <h1>CryptoCambios <span>PY</span><span class="status-online"><span class="status-dot"></span>En línea</span></h1>
+        <p>Exchange automatizado y verificado local</p>
+    </div>
 
-        <hr>
+    <!-- SALDOS REALES DE LA BASE DE DATOS -->
+    <div class="status-container">
+        <div class="status-badge">
+            <span>Guaraníes:</span>
+            <b id="saldo_gs_display">Cargando...</b>
+        </div>
+        <div class="status-badge">
+            <span>🔵 USDC:</span>
+            <b id="saldo_usdc_display">Cargando...</b>
+        </div>
+        <div class="status-badge">
+            <span>🟢 USDT:</span>
+            <b id="saldo_usdt_display">Cargando...</b>
+        </div>
+        <div class="status-badge">
+            <span>🟡 BNB:</span>
+            <b id="saldo_bnb_display">Cargando...</b>
+        </div>
+    </div>
 
-        <!-- Formulario de Intercambio -->
-        <form id="exchangeForm" onsubmit="procesarEnvio(event)">
-            <h3>Operación</h3>
-            <label>
-                <input type="radio" name="tipo_op" value="COMPRA" checked onchange="manejarCambioModo()"> Quiero comprar Criptomonedas
-            </label>
-            <label>
-                <input type="radio" name="tipo_op" value="VENTA" onchange="manejarCambioModo()"> Quiero vender Criptomonedas
-            </label>
-
-            <br><br>
-
-            <label>Selecciona Cripto:</label>
-            <select id="cripto" onchange="sincronizarDivisaMonto()">
-                <option value="USDT">USDT (TRC-20)</option>
-                <option value="USDC">USDC (ERC-20)</option>
-                <option value="BNB">BNB (BSC)</option>
-            </select>
-
-            <br><br>
-
-            <label>Monto a transferir:</label>
-            <input type="text" id="monto_input" placeholder="0" oninput="formatearMontoEntrada()">
-            <select id="monto_divisa" onchange="ejecutarCalculos()">
-                <option value="Gs">Gs</option>
-                <option value="$">USD ($)</option>
-                <option id="opt_monto_cripto" value="USDT">USDT</option>
-            </select>
-            <span id="montoEnGsPreview" class="hidden"></span>
-
-            <br><br>
-
-            <!-- Sección de campos según Compra o Venta -->
-            <div id="secCompraCampos">
-                <label>Tu Wallet destino (EVM):</label>
-                <input type="text" id="wallet_cliente" placeholder="0x..." oninput="validarWalletEVM(this)">
-                <span id="validadorWalletTxt" class="validador-status invalido">🚨 Dirección inválida.</span>
+    <div class="pizarra">
+        <div class="grid-precios">
+            <div class="precio-card base">
+                <div class="coin-title">🔵 USDC</div>
+                <div class="coin-net">RED BASE</div>
+                <div class="row-p"><span>Vendés a:</span><span id="piz-usdc-c" class="up">--</span></div>
+                <div class="row-p"><span>Comprás a:</span><span id="piz-usdc-v" class="down">--</span></div>
             </div>
+            <div class="precio-card bsc">
+                <div class="coin-title">🟢 USDT</div>
+                <div class="coin-net">RED BSC</div>
+                <div class="row-p"><span>Vendés a:</span><span id="piz-usdt-c" class="up">--</span></div>
+                <div class="row-p"><span>Comprás a:</span><span id="piz-usdt-v" class="down">--</span></div>
+            </div>
+            <div class="precio-card bnbchain">
+                <div class="coin-title">🟡 BNB</div>
+                <div class="coin-net">BNB CHAIN</div>
+                <div class="row-p"><span>Vendés a:</span><span id="piz-bnb-c" class="up">--</span></div>
+                <div class="row-p"><span>Comprás a:</span><span id="piz-bnb-v" class="down">--</span></div>
+            </div>
+        </div>
+    </div>
 
-            <div id="secVentaCampos" class="hidden">
-                <label>Medio de pago local:</label>
-                <select id="medio_local" onchange="manejarCambioMedioLocal()">
-                    <option value="Ueno Bank">Ueno Bank</option>
-                    <option value="Transferencia bancaria (otro banco)">Otro Banco</option>
+    <form id="exchangeForm" onsubmit="procesarEnvio(event)">
+        <div class="form-group">
+            <label>Tipo de Operación</label>
+            <div class="radio-group">
+                <div class="radio-btn">
+                    <input type="radio" id="typeCompra" name="tipo_op" value="COMPRA" checked onclick="manejarCambioModo()">
+                    <label for="typeCompra" class="radio-label compra">Comprar Cripto</label>
+                </div>
+                <div class="radio-btn">
+                    <input type="radio" id="typeVenta" name="tipo_op" value="VENTA" onclick="manejarCambioModo()">
+                    <label for="typeVenta" class="radio-label venta">Vender Cripto</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="nombre">Nombre y Apellido del Titular</label>
+            <input type="text" id="nombre" placeholder="Ej. Carlos Bogado" required>
+        </div>
+
+        <div class="form-group">
+            <label for="cedula_file">Adjuntar Cédula de Identidad (Frente/Dorso)</label>
+            <input type="file" id="cedula_file" accept="image/*" onchange="actualizarEstadoCedula()" required>
+            <div id="validadorCedulaTxt" class="validador-status invalido">❌ Sin documento cargado</div>
+        </div>
+
+        <div class="form-group">
+            <label for="cripto">Moneda y Red Activa</label>
+            <select id="cripto" onchange="sincronizarDivisaMonto()" required>
+                <option value="USDC (Red BASE)">🔵 USDC - Red BASE (0x...)</option>
+                <option value="USDT (Red BSC BEP-20)">🟢 USDT - Red BSC BEP-20 (0x...)</option>
+                <option value="BNB (Red BNB Chain BEP-20)">🟡 BNB - Red BNB Chain BEP-20 (0x...)</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <span class="switch-modo" id="btnSwitchModo" onclick="alternarDireccionCalculo()">🔄 Cambiar a: Quiero recibir exactamente...</span>
+            <div class="monto-group">
+                <input type="text" id="monto_input" placeholder="Monto" oninput="formatearMontoEntrada()" required>
+                <select id="monto_divisa" onchange="ejecutarCalculos()" required>
+                    <option value="Gs">Gs</option>
+                    <option value="$">US$</option>
+                    <option id="opt_monto_cripto" value="USDC">USDC</option>
                 </select>
-                <input type="text" id="v_banco_otro" class="hidden" placeholder="Nombre de tu banco" oninput="validarDatosBancoVendedor()">
-                
-                <br><br>
-                <button type="button" id="btnSwitchIdentificador" onclick="alternarTipoIdentificador()">🔄 Usar Alias en vez de Nro de Cuenta</button>
-                <input type="text" id="v_cuenta" placeholder="Nro Cuenta" oninput="validarDatosBancoVendedor()">
-                <input type="text" id="v_cedula" placeholder="Cédula de Identidad (CI)" oninput="validarDatosBancoVendedor()">
-                <span id="validadorBancoTxt" class="validador-status invalido">❌ Datos incompletos.</span>
+            </div>
+            <div id="montoEnGsPreview" class="info-txt hidden"></div>
+            <div id="alertaLimite" class="limite-alerta">⚠️ Monto fuera de límites o supera fondos de reserva.</div>
+
+            <div id="gsHighlightBox" class="gs-highlight-box hidden">
+                <div class="gs-highlight-label" id="gsHighlightLabel">VAS A PAGAR</div>
+                <div class="gs-highlight-value" id="gsHighlightValue">0 Gs</div>
+            </div>
+            
+            <div id="boxEstimado" class="estimacion-box hidden">
+                <div class="est-row"><span>Estimación final:</span><span id="valEstimado">0</span></div>
+                <div class="est-row" style="font-size:11px; opacity:0.8; font-weight:normal; margin-top:4px;">
+                    <span>Interés de plataforma (1%):</span><span id="valComision">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- CAMPOS COMPRA -->
+        <div class="form-group" id="secCompraCampos">
+            <label for="wallet_cliente">Tu Dirección de Wallet EVM Destino</label>
+            <input type="text" id="wallet_cliente" placeholder="0x..." oninput="validarWalletEVM(this)">
+            <div id="validadorWalletTxt" class="validador-status invalido">⚠️ ALARMA: Falta dirección o formato inválido (0x + 42 caracteres).</div>
+            
+            <div class="qr-box">
+                <div style="font-size:11px; font-weight:bold; color:var(--primary)">📋 Cuenta de Depósito Oficial:</div>
+                <div class="info-txt" style="margin-top:4px; color: var(--text-color); font-size:12px;">
+                    <b>Banco:</b> ueno bank <br>
+                    <b>Alias de Cuenta:</b> 3652363 <br>
+                    <b>Titular:</b> CryptoCambios PY
+                </div>
+                <button type="button" class="btn-action" style="margin-top:8px;" onclick="copiarDatosEmpresa()">Copiar Alias ueno bank</button>
+            </div>
+        </div>
+
+        <!-- CAMPOS VENTA -->
+        <div class="hidden" id="secVentaCampos">
+            <div class="form-group" style="background: rgba(255,122,26,0.05); padding: 12px; border-radius: 8px; border: 1px dashed var(--accent-orange); margin-bottom: 12px;">
+                <label style="color:var(--accent-orange); margin-bottom: 2px;">📥 Wallet Oficial Receptora:</label>
+                <input type="text" value="0x3e8541371849EEdDb3C093605477Bf9e3589C110" style="font-family:monospace; font-size:11px; text-align:center; background:#000; color:var(--accent-orange);" readonly>
+                <button type="button" class="btn-action" style="margin-top:6px;" onclick="copiarWalletEmpresa()">Copiar Wallet de la Empresa</button>
             </div>
 
-            <br>
-
-            <!-- Botón para subir la foto de la cédula -->
-            <label>Subir foto de tu Cédula:</label>
-            <input type="file" id="cedula_file" accept="image/*" onchange="actualizarEstadoCedula()">
-            <span id="validadorCedulaTxt" class="validador-status invalido">❌ Sin documento cargado</span>
-
-            <br><br>
-
-            <!-- Resumen y alertas -->
-            <div id="boxEstimado" class="hidden">
-                <p>Estimado a recibir: <strong id="valEstimado">0</strong></p>
-                <p>Comisión (1%): <span id="valComision">0</span></p>
+            <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                <span style="font-size: 12px; font-weight: bold; display: block; margin-bottom: 8px; color: var(--accent-orange);">🏦 Tu Cuenta Bancaria Receptora</span>
+                <select id="medio_local" style="margin-bottom:8px;" onchange="manejarCambioMedioLocal()" required>
+                    <optgroup label="Bancos">
+                        <option value="ueno bank">ueno bank</option>
+                        <option value="Banco Continental">Banco Continental</option>
+                        <option value="Itaú">Itaú</option>
+                        <option value="Banco Familiar">Banco Familiar</option>
+                        <option value="Banco Nacional de Fomento (BNF)">Banco Nacional de Fomento (BNF)</option>
+                    </optgroup>
+                    <optgroup label="Billeteras móviles">
+                        <option value="Tigo Money">Tigo Money</option>
+                        <option value="Billetera Personal">Billetera Personal</option>
+                    </optgroup>
+                    <optgroup label="Otro">
+                        <option value="Transferencia bancaria (otro banco)">Transferencia bancaria (otro banco)</option>
+                    </optgroup>
+                </select>
+                <input type="text" id="v_banco_otro" class="hidden" placeholder="Nombre del banco o billetera" oninput="validarDatosBancoVendedor()" style="margin-bottom:8px;">
+                <span class="switch-modo" id="btnSwitchIdentificador" onclick="alternarTipoIdentificador()">🔄 Usar Alias en vez de Nro de Cuenta</span>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                    <input type="text" id="v_cuenta" placeholder="Nro Cuenta" oninput="validarDatosBancoVendedor()">
+                    <input type="text" id="v_cedula" placeholder="CI del Titular" oninput="validarDatosBancoVendedor()">
+                </div>
+                <select id="v_tipo" onchange="validarDatosBancoVendedor()">
+                    <option value="Ahorro">Caja de Ahorros</option>
+                    <option value="Corriente">Cuenta Corriente</option>
+                </select>
+                <div id="validadorBancoTxt" class="validador-status invalido" style="margin-top:8px;">❌ Datos bancarios incompletos.</div>
             </div>
+        </div>
 
-            <div id="gsHighlightBox" class="hidden">
-                <p><span id="gsHighlightLabel">VALOR:</span> <strong id="gsHighlightValue">0 Gs</strong></p>
-            </div>
+        <button type="submit" id="btnSubmitForm" class="btn-submit" style="margin-top:15px;" disabled>🚀 ENVIAR SOLICITUD POR WHATSAPP</button>
+    </form>
 
-            <p id="alertaLimite" style="color: var(--accent-orange); display: none;"></p>
-
-            <button type="submit" id="btnSubmitForm" disabled>Enviar Solicitud</button>
-        </form>
-
-        <hr>
-
-        <h2>Últimas Operaciones Exitosas</h2>
-        <div id="historialLista">No hay operaciones completadas aún.</div>
+    <div class="historial-section">
+        <div class="historial-title">📝 Últimas operaciones completadas</div>
+        <div id="historialLista"><div style="font-size:11px; color:var(--text-muted); font-style: italic;">No hay operaciones registradas.</div></div>
     </div>
 
-    <!-- Pantalla de bloqueo de espera de aprobación -->
-    <div id="lockOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:9999; flex-direction:column; align-items:center; justify-content:center;">
-        <h2>Procesando tu Operación...</h2>
-        <p>Por favor completá el pago y esperá que el operador confirme la recepción.</p>
-        <p>Tiempo de expiración: <span id="timer" style="font-size:24px; font-weight:bold; color:var(--accent-orange);">15:00</span></p>
-        <button onclick="cancelarPedido()">Cancelar Orden</button>
-    </div>
+    <div class="footer-copyright">© <span id="anioActual">2026</span> CryptoCambios PY.</div>
+</div>
 
-    <!-- Notificaciones Toast -->
-    <div id="toastNotification" class="toast-notif"></div>
+<div id="toastNotification" class="toast-notif"></div>
 
-    <!-- ================= CONTROLADOR JAVASCRIPT ================= -->
-    <script>
-        // 1. CREDENCIALES DE SUPABASE INTEGRADAS
-        const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co"; 
-        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
+<!-- BOTÓN FLOTANTE SOPORTE -->
+<a href="https://wa.me/595961101538?text=Hola!%20Tengo%20una%20consulta%20sobre%20el%20sistema%20de%20intercambios." class="whatsapp-float" target="_blank" aria-label="Consultas por WhatsApp">
+    <svg viewBox="0 0 448 512">
+        <path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L32 503l141.1-37c32.4 17.7 68.8 26.9 105.8 26.9h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-83.9 22 22.4-81.8-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/>
+    </svg>
+</a>
 
-        var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+<script>
+    // 1. CREDENCIALES DE SUPABASE INTEGRADAS
+    const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co"; 
+    const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
 
-        // Variables de lógica
-        const TELEFONO_WHATSAPP = "595961101538";
-        const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
+    const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        let PRECIOS = { 
-            "USDC": { compra: 7530, venta: 7630 }, 
-            "USDT": { compra: 7520, venta: 7640 }, 
-            "BNB": { compra: 4330000, venta: 4390000 } 
-        };
-        const LIMITE_USD_MINIMO = { "USDC": 10, "USDT": 10, "BNB": 5 };
-        const LIMITE_GS_MAXIMO = 5000000;
-        const LIMITE_USD_MAXIMO = 1000;
+    const TELEFONO_WHATSAPP = "595961101538";
+    const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
 
-        let modoCalculo = "GASTAR"; 
-        let esWalletValida = false;
-        let esBancoValido = false;
-        let tipoIdentificadorBanco = "CUENTA"; 
-        let esMontoValido = false;
-        let esCedulaValida = false;
+    let PRECIOS = { "USDC": { compra: 7530, venta: 7630 }, "USDT": { compra: 7520, venta: 7640 }, "BNB": { compra: 4330000, venta: 4390000 } };
+    const LIMITE_USD_MINIMO = { "USDC": 10, "USDT": 10, "BNB": 5 };
+    const LIMITE_GS_MAXIMO = 5000000;
+    const LIMITE_USD_MAXIMO = 1000;
+
+    let modoCalculo = "GASTAR"; 
+    let esWalletValida = false;
+    let esBancoValido = false;
+    let tipoIdentificadorBanco = "CUENTA"; 
+    let esMontoValido = false;
+    let esCedulaValida = false;
+    let timerInterval;
+    let channelOrdenes = null;
+
+    let fondosActuales = { gs: 0, USDC: 0, USDT: 0, BNB: 0 };
+    let transaccionPendiente = null;
+
+    window.onload = async function() {
+        actualizarPizarraVisual();
+        sincronizarDivisaMonto();
         
-        let fondosActuales = { gs: 0, USDC: 0, USDT: 0, BNB: 0 };
-        let transaccionPendiente = null;
-        let channelOrdenes = null;
-
-        // Función de seguridad ante elementos ausentes en el DOM
-        function setElementText(id, text) {
-            const el = document.getElementById(id);
-            if (el) el.innerText = text;
-        }
-
-        window.onload = async function() {
-            actualizarPizarraVisual();
-            sincronizarDivisaMonto();
-            await cargarFondosDesdeSupabase();
-            escucharCambiosFondos();
-            manejarCambioModo();
-            verificarBloqueosActivos();
-            actualizarHistorialPantalla();
-        };
-
-        function showToast(message, type = "success") {
-            const toast = document.getElementById('toastNotification');
-            if (toast) {
-                toast.innerText = message;
-                toast.className = `toast-notif show ${type}`;
-                setTimeout(() => { toast.classList.remove('show'); }, 3500);
-            }
-        }
-
-        function obtenerCriptoRef() {
-            const v = document.getElementById('cripto');
-            if (!v) return "USDT";
-            return v.value;
-        }
-
-        function obtenerTasaUsdAGs() { 
-            return (PRECIOS.USDT.compra + PRECIOS.USDT.venta) / 2; 
-        }
+        // Carga y escucha en vivo los fondos de reservas reales en Supabase
+        await cargarFondosDesdeSupabase();
+        escucharCambiosFondos();
         
-        function decimalesCripto(criptoRef) { 
-            return criptoRef === "BNB" ? 6 : 2; 
-        }
+        manejarCambioModo();
+        await verificarBloqueosActivos();
+        await actualizarHistorialPantalla();
+        document.getElementById('anioActual').innerText = new Date().getFullYear();
+    };
 
-        function sincronizarDivisaMonto() {
-            const criptoRef = obtenerCriptoRef();
-            const opt = document.getElementById('opt_monto_cripto');
-            if (opt) {
-                opt.value = criptoRef; 
-                opt.innerText = criptoRef;
-            }
-            ejecutarCalculos();
-        }
+    function showToast(message, type = "success") {
+        const toast = document.getElementById('toastNotification');
+        if (!toast) return;
+        toast.innerText = message;
+        toast.className = `toast-notif show ${type}`;
+        setTimeout(() => { toast.classList.remove('show'); }, 3500);
+    }
 
-        function actualizarPizarraVisual() {
-            setElementText('piz-usdc-c', PRECIOS.USDC.compra.toLocaleString('de-DE') + " Gs");
-            setElementText('piz-usdc-v', PRECIOS.USDC.venta.toLocaleString('de-DE') + " Gs");
-            setElementText('piz-usdt-c', PRECIOS.USDT.compra.toLocaleString('de-DE') + " Gs");
-            setElementText('piz-usdt-v', PRECIOS.USDT.venta.toLocaleString('de-DE') + " Gs");
-            setElementText('piz-bnb-c', PRECIOS.BNB.compra.toLocaleString('de-DE') + " Gs");
-            setElementText('piz-bnb-v', PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs");
-        }
+    function obtenerCriptoRef() {
+        const v = document.getElementById('cripto').value;
+        if (v.includes("BNB")) return "BNB";
+        if (v.includes("USDC")) return "USDC";
+        return "USDT";
+    }
 
-        async function cargarFondosDesdeSupabase() {
-            try {
-                const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
-                if (!error && data) {
-                    fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
-                    renderizarSaldosPantalla();
-                } else {
-                    console.error("Error cargando reservas:", error);
-                }
-            } catch (err) {
-                console.error("Error de conexión:", err);
-            }
-        }
+    function obtenerTasaUsdAGs() {
+        return (PRECIOS.USDT.compra + PRECIOS.USDT.venta) / 2;
+    }
 
-        function renderizarSaldosPantalla() {
-            setElementText('saldo_gs_display', fondosActuales.gs.toLocaleString('de-DE') + " Gs");
-            setElementText('saldo_usdc_display', fondosActuales.USDC.toLocaleString('de-DE') + " USDC");
-            setElementText('saldo_usdt_display', fondosActuales.USDT.toLocaleString('de-DE') + " USDT");
-            setElementText('saldo_bnb_display', fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB");
-        }
+    function decimalesCripto(criptoRef) {
+        return criptoRef === "BNB" ? 6 : 2;
+    }
 
-        function escucharCambiosFondos() {
-            supabase.channel('cambios-reservas')
-                .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
-                    fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
-                    renderizarSaldosPantalla();
-                }).subscribe();
+    function sincronizarDivisaMonto() {
+        const criptoRef = obtenerCriptoRef();
+        const opt = document.getElementById('opt_monto_cripto');
+        if (opt) {
+            opt.value = criptoRef;
+            opt.innerText = criptoRef;
         }
+        ejecutarCalculos();
+    }
 
-        function manejarCambioModo() {
-            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-            const secCompraCampos = document.getElementById('secCompraCampos');
-            const secVentaCampos = document.getElementById('secVentaCampos');
-            
-            if (tipoOpEl && secCompraCampos && secVentaCampos) {
-                const esCompra = tipoOpEl.value === "COMPRA";
-                secCompraCampos.classList.toggle('hidden', !esCompra);
-                secVentaCampos.classList.toggle('hidden', esCompra);
-            }
-            ejecutarCalculos();
-        }
+    function actualizarPizarraVisual() {
+        document.getElementById('piz-usdc-c').innerText = PRECIOS.USDC.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdc-v').innerText = PRECIOS.USDC.venta.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdt-c').innerText = PRECIOS.USDT.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-usdt-v').innerText = PRECIOS.USDT.venta.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-bnb-c').innerText = PRECIOS.BNB.compra.toLocaleString('de-DE') + " Gs";
+        document.getElementById('piz-bnb-v').innerText = PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs";
+    }
 
-        function formatearMontoEntrada() {
-            const input = document.getElementById('monto_input');
-            const divisaEl = document.getElementById('monto_divisa');
-            if (!input || !divisaEl) return;
-            
-            const divisa = divisaEl.value;
-            let pos = input.selectionStart; 
-            let oldLen = input.value.length;
-            
-            if (divisa === "Gs") {
-                let val = input.value.replace(/\D/g, "");
-                input.value = val === "" ? "" : parseInt(val).toLocaleString('de-DE');
+    // CONEXIÓN DIRECTA A SUPABASE: Obtener la fila con id 1 de tu tabla "reservas"
+    async function cargarFondosDesdeSupabase() {
+        try {
+            const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
+            if (!error && data) {
+                fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
+                renderizarSaldosPantalla();
             } else {
-                let val = input.value.replace(/[^0-9.,]/g, '').replace(/\./g, ',');
-                let parts = val.split(','); 
-                if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
-                input.value = val;
+                console.error("Error cargando reservas:", error);
             }
-            input.setSelectionRange(pos + (input.value.length - oldLen), pos + (input.value.length - oldLen));
-            ejecutarCalculos();
+        } catch (err) {
+            console.error("Error de conexión:", err);
+        }
+    }
+
+    function renderizarSaldosPantalla() {
+        document.getElementById('saldo_gs_display').innerText = fondosActuales.gs.toLocaleString('de-DE') + " Gs";
+        document.getElementById('saldo_usdc_display').innerText = fondosActuales.USDC.toLocaleString('de-DE') + " USDC";
+        document.getElementById('saldo_usdt_display').innerText = fondosActuales.USDT.toLocaleString('de-DE') + " USDT";
+        document.getElementById('saldo_bnb_display').innerText = fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB";
+    }
+
+    // Escucha en vivo cambios directos en la base de datos de Supabase
+    function escucharCambiosFondos() {
+        supabase.channel('cambios-reservas')
+            .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
+                fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
+                renderizarSaldosPantalla();
+            }).subscribe();
+    }
+
+    function manejarCambioModo() {
+        const esCompra = document.getElementById('typeCompra').checked;
+        document.getElementById('secCompraCampos').classList.toggle('hidden', !esCompra);
+        document.getElementById('secVentaCampos').classList.toggle('hidden', esCompra);
+        ejecutarCalculos();
+    }
+
+    function alternarDireccionCalculo() {
+        modoCalculo = (modoCalculo === "GASTAR") ? "RECIBIR" : "GASTAR";
+        document.getElementById('btnSwitchModo').innerText = (modoCalculo === "GASTAR") ? "🔄 Cambiar a: Quiero recibir exactamente..." : "🔄 Cambiar a: Quiero gastar...";
+        ejecutarCalculos();
+    }
+
+    function formatearMontoEntrada() {
+        const input = document.getElementById('monto_input');
+        const divisa = document.getElementById('monto_divisa').value;
+        let pos = input.selectionStart;
+        let oldLen = input.value.length;
+
+        if (divisa === "Gs") {
+            let val = input.value.replace(/\D/g, "");
+            input.value = val === "" ? "" : parseInt(val).toLocaleString('de-DE');
+        } else {
+            let val = input.value.replace(/[^0-9.,]/g, '').replace(/\./g, ',');
+            let parts = val.split(',');
+            if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
+            input.value = val;
+        }
+        
+        let newLen = input.value.length;
+        input.setSelectionRange(pos + (newLen - oldLen), pos + (newLen - oldLen));
+        ejecutarCalculos();
+    }
+
+    function obtenerValorNumerico() {
+        const inputVal = document.getElementById('monto_input').value;
+        const divisa = document.getElementById('monto_divisa').value;
+        if (!inputVal) return 0;
+        return (divisa === "Gs") ? (parseFloat(inputVal.replace(/\./g, '')) || 0) : (parseFloat(inputVal.replace(/\,/g, '.')) || 0);
+    }
+
+    function actualizarEstadoCedula() {
+        const fileInput = document.getElementById('cedula_file');
+        const msg = document.getElementById('validadorCedulaTxt');
+        if(fileInput.files && fileInput.files.length > 0) {
+            msg.innerText = "✅ Documento cargado.";
+            msg.className = "validador-status valido";
+            esCedulaValida = true;
+        } else {
+            msg.innerText = "❌ Sin documento cargado";
+            msg.className = "validador-status invalido";
+            esCedulaValida = false;
+        }
+        validarFormularioCompleto();
+    }
+
+    function ejecutarCalculos() {
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        const criptoRef = obtenerCriptoRef();
+        const divisaSeleccionada = document.getElementById('monto_divisa').value;
+        let monto = obtenerValorNumerico();
+
+        const box = document.getElementById('boxEstimado');
+        const txtEst = document.getElementById('valEstimado');
+        const txtCom = document.getElementById('valComision');
+        const alerta = document.getElementById('alertaLimite');
+
+        if(monto <= 0) { 
+            box.classList.add('hidden'); 
+            document.getElementById('gsHighlightBox').classList.add('hidden'); 
+            esMontoValido = false; 
+            validarFormularioCompleto(); 
+            return; 
+        }
+        box.classList.remove('hidden');
+
+        const tasa = (tipoOp === "COMPRA") ? PRECIOS[criptoRef].venta : PRECIOS[criptoRef].compra;
+        let descuentoGsCalculado = 0;
+        let descuentoCryptoCalculado = 0;
+        let montoGsFinal = 0;
+        let montoEnGsDeControl = 0;
+
+        if (divisaSeleccionada === "Gs") {
+            montoEnGsDeControl = monto;
+        } else if (divisaSeleccionada === "$") {
+            montoEnGsDeControl = monto * obtenerTasaUsdAGs();
+        } else {
+            montoEnGsDeControl = monto * tasa;
         }
 
-        function obtenerValorNumerico() {
-            const input = document.getElementById('monto_input');
-            const divisaEl = document.getElementById('monto_divisa');
-            if (!input || !divisaEl) return 0;
-            
-            const inputVal = input.value;
-            const divisa = divisaEl.value;
-            if (!inputVal) return 0;
-            return (divisa === "Gs") ? (parseFloat(inputVal.replace(/\./g, '')) || 0) : (parseFloat(inputVal.replace(/\,/g, '.')) || 0);
+        const previewGs = document.getElementById('montoEnGsPreview');
+        if (divisaSeleccionada === "Gs") {
+            previewGs.classList.add('hidden');
+        } else {
+            previewGs.innerText = `≈ ${Math.round(montoEnGsDeControl).toLocaleString('de-DE')} Gs`;
+            previewGs.classList.remove('hidden');
         }
 
-        function actualizarEstadoCedula() {
-            const fileInput = document.getElementById('cedula_file');
-            const msg = document.getElementById('validadorCedulaTxt');
-            if (!fileInput || !msg) return;
-            
-            esCedulaValida = fileInput.files && fileInput.files.length > 0;
-            msg.innerText = esCedulaValida ? "✅ Documento cargado." : "❌ Sin documento cargado";
-            msg.className = "validador-status " + (esCedulaValida ? "valido" : "invalido");
-            validarFormularioCompleto();
-        }
-
-        function ejecutarCalculos() {
-            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-            const divisaSeleccionadaEl = document.getElementById('monto_divisa');
-            if (!tipoOpEl || !divisaSeleccionadaEl) return;
-
-            const tipoOp = tipoOpEl.value;
-            const criptoRef = obtenerCriptoRef();
-            const divisaSeleccionada = divisaSeleccionadaEl.value;
-            let monto = obtenerValorNumerico();
-
-            const box = document.getElementById('boxEstimado');
-            const gsBox = document.getElementById('gsHighlightBox');
-            const alerta = document.getElementById('alertaLimite');
-
-            if(monto <= 0) { 
-                if (box) box.classList.add('hidden'); 
-                if (gsBox) gsBox.classList.add('hidden'); 
-                esMontoValido = false; 
-                validarFormularioCompleto(); 
-                return; 
-            }
-            
-            if (box) box.classList.remove('hidden');
-
-            const tasa = (tipoOp === "COMPRA") ? PRECIOS[criptoRef].venta : PRECIOS[criptoRef].compra;
-            let descuentoGsCalculado = 0; 
-            let descuentoCryptoCalculado = 0; 
-            let montoGsFinal = 0; 
-            let montoEnGsDeControl = 0;
-
-            if (divisaSeleccionada === "Gs") { montoEnGsDeControl = monto; } 
-            else if (divisaSeleccionada === "$") { montoEnGsDeControl = monto * obtenerTasaUsdAGs(); } 
-            else { montoEnGsDeControl = monto * tasa; }
-
-            const previewGs = document.getElementById('montoEnGsPreview');
-            if (previewGs) {
-                if (divisaSeleccionada === "Gs") previewGs.classList.add('hidden');
-                else { 
-                    previewGs.innerText = `≈ ${Math.round(montoEnGsDeControl).toLocaleString('de-DE')} Gs`; 
-                    previewGs.classList.remove('hidden'); 
-                }
-            }
-
-            if (tipoOp === "COMPRA") {
-                if (box) {
-                    box.style.borderColor = "var(--success)"; 
-                    box.style.color = "var(--success)";
-                }
+        if (tipoOp === "COMPRA") {
+            box.style.borderColor = "var(--success)"; box.style.color = "var(--success)";
+            if (modoCalculo === "GASTAR") {
                 if (divisaSeleccionada === "Gs") {
-                    let totalBrutoCripto = monto / tasa; 
-                    let comisionCripto = totalBrutoCripto * 0.01; 
+                    let totalBrutoCripto = monto / tasa;
+                    let comisionCripto = totalBrutoCripto * 0.01;
                     let netoCripto = totalBrutoCripto - comisionCripto;
-                    setElementText('valEstimado', `${netoCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`);
-                    setElementText('valComision', `${comisionCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`);
+                    txtEst.innerText = `${netoCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
+                    txtCom.innerText = `${comisionCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
                     descuentoCryptoCalculado = totalBrutoCripto; 
                     montoGsFinal = monto;
                 } else {
                     let cryptoMonto = (divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto;
-                    let totalBrutoGs = cryptoMonto * tasa; 
-                    let comisionGs = totalBrutoGs * 0.01; 
+                    let totalBrutoGs = cryptoMonto * tasa;
+                    let comisionGs = totalBrutoGs * 0.01;
                     let gsAPagar = totalBrutoGs + comisionGs;
-                    setElementText('valEstimado', `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs`); 
-                    setElementText('valComision', `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`);
-                    descuentoCryptoCalculado = cryptoMonto; 
+                    txtEst.innerText = `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs`;
+                    txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                    descuentoCryptoCalculado = cryptoMonto;
                     montoGsFinal = gsAPagar;
                 }
-            } else {
-                if (box) {
-                    box.style.borderColor = "var(--accent-orange)"; 
-                    box.style.color = "var(--accent-orange)";
-                }
-                let totalBrutoCripto = (divisaSeleccionada === "Gs") ? (monto / tasa) : ((divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto);
-                let totalBrutoGs = totalBrutoCripto * tasa;
-                setElementText('valEstimado', `${Math.round(totalBrutoGs * 0.99).toLocaleString('de-DE')} Gs`);
-                setElementText('valComision', `${Math.round(totalBrutoGs * 0.01).toLocaleString('de-DE')} Gs`);
-                descuentoGsCalculado = totalBrutoGs * 0.99; 
-                montoGsFinal = descuentoGsCalculado;
-            }
-
-            if (gsBox) {
-                setElementText('gsHighlightLabel', (tipoOp === "COMPRA") ? "VAS A PAGAR" : "VAS A RECIBIR");
-                setElementText('gsHighlightValue', `${Math.round(montoGsFinal).toLocaleString('de-DE')} Gs`);
-                gsBox.classList.remove('hidden');
-            }
-
-            const usdAGs = obtenerTasaUsdAGs();
-            const gsMinimo = LIMITE_USD_MINIMO[criptoRef] * usdAGs;
-            const gsMaximoEfectivo = Math.min(LIMITE_GS_MAXIMO, LIMITE_USD_MAXIMO * usdAGs);
-            let superaLimitesFisicos = (montoEnGsDeControl < gsMinimo || montoEnGsDeControl > gsMaximoEfectivo);
-            let superaReservaGs = (tipoOp === "VENTA" && descuentoGsCalculado > fondosActuales.gs);
-            let superaReservaCrypto = (tipoOp === "COMPRA" && descuentoCryptoCalculado > fondosActuales[criptoRef]);
-
-            if (alerta) {
-                if(superaLimitesFisicos || superaReservaGs || superaReservaCrypto) {
-                    alerta.style.display = "block";
-                    alerta.innerText = (superaReservaGs || superaReservaCrypto) ? "⚠️ Sin reservas suficientes en la web." : `⚠️ Permitido desde ${Math.round(gsMinimo).toLocaleString('de-DE')} Gs hasta ${Math.round(gsMaximoEfectivo).toLocaleString('de-DE')} Gs.`;
-                    esMontoValido = false;
+            } else { 
+                if (divisaSeleccionada === "Gs") {
+                    let comisionGs = monto * 0.01;
+                    let gsAPagar = monto + comisionGs;
+                    txtEst.innerText = `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs Pagar`;
+                    txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                    descuentoCryptoCalculado = monto / tasa;
+                    montoGsFinal = gsAPagar;
                 } else {
-                    alerta.style.display = "none"; 
-                    esMontoValido = true;
-                    transaccionPendiente = { tipo: tipoOp, cripto: criptoRef, descuentoGs: descuentoGsCalculado, descuentoCrypto: descuentoCryptoCalculado };
+                    let cryptoMonto = (divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto;
+                    let totalBrutoGs = cryptoMonto * tasa;
+                    let comisionGs = totalBrutoGs * 0.01;
+                    let gsAPagar = totalBrutoGs + comisionGs;
+                    txtEst.innerText = `${Math.round(gsAPagar).toLocaleString('de-DE')} Gs Pagar`;
+                    txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                    descuentoCryptoCalculado = cryptoMonto;
+                    montoGsFinal = gsAPagar;
                 }
             }
-            validarFormularioCompleto();
-        }
-
-        function validarWalletEVM(input) {
-            if (!input) return;
-            esWalletValida = /^0x[a-fA-F0-9]{40}$/.test(input.value.trim());
-            const msg = document.getElementById('validadorWalletTxt');
-            if (msg) {
-                msg.innerText = esWalletValida ? "✅ Wallet válida." : "🚨 Dirección inválida.";
-                msg.className = "validador-status " + (esWalletValida ? "valido" : "invalido");
-            }
-            validarFormularioCompleto();
-        }
-
-        function alternarTipoIdentificador() {
-            tipoIdentificadorBanco = (tipoIdentificadorBanco === "CUENTA") ? "ALIAS" : "CUENTA";
-            const input = document.getElementById('v_cuenta');
-            const btn = document.getElementById('btnSwitchIdentificador');
-            if (!input) return;
-            
-            if (tipoIdentificadorBanco === "ALIAS") {
-                input.placeholder = "Alias de tu cuenta"; 
-                if (btn) btn.innerText = "🔄 Usar Nro de Cuenta en vez de Alias";
-            } else {
-                input.placeholder = "Nro Cuenta"; 
-                if (btn) btn.innerText = "🔄 Usar Alias en vez de Nro de Cuenta";
-            }
-            input.value = ""; 
-            validarDatosBancoVendedor();
-        }
-
-        function manejarCambioMedioLocal() {
-            const medioLocal = document.getElementById('medio_local');
-            const vBancoOtro = document.getElementById('v_banco_otro');
-            if (!medioLocal || !vBancoOtro) return;
-            
-            const esOtroBanco = medioLocal.value === "Transferencia bancaria (otro banco)";
-            vBancoOtro.classList.toggle('hidden', !esOtroBanco);
-            if (!esOtroBanco) vBancoOtro.value = "";
-            validarDatosBancoVendedor();
-        }
-
-        function validarDatosBancoVendedor() {
-            const vCedula = document.getElementById('v_cedula');
-            const vCuenta = document.getElementById('v_cuenta');
-            const medioLocal = document.getElementById('medio_local');
-            const vBancoOtro = document.getElementById('v_banco_otro');
-            if (!vCedula || !vCuenta || !medioLocal) return;
-
-            const ci = vCedula.value.replace(/\D/g, "");
-            const ctaRaw = vCuenta.value.trim();
-            
-            if (tipoIdentificadorBanco === "CUENTA") vCuenta.value = ctaRaw.replace(/\D/g, "");
-            let ctaFinal = vCuenta.value.trim();
-            
-            esBancoValido = (tipoIdentificadorBanco === "ALIAS" ? ctaFinal.length >= 3 : ctaFinal.length >= 5) && ci.length >= 5;
-            if (medioLocal.value === "Transferencia bancaria (otro banco)" && vBancoOtro) {
-                esBancoValido = esBancoValido && vBancoOtro.value.trim().length >= 3;
-            }
-            
-            const msg = document.getElementById('validadorBancoTxt');
-            if (msg) {
-                msg.className = "validador-status " + (esBancoValido ? "valido" : "invalido");
-                msg.innerText = esBancoValido ? "✅ Datos listos." : "❌ Datos incompletos.";
-            }
-            validarFormularioCompleto();
-        }
-
-        function validarFormularioCompleto() {
-            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-            if (!tipoOpEl) return;
-            
-            const tipoOp = tipoOpEl.value;
-            let todoOk = esMontoValido && esCedulaValida && ((tipoOp === "COMPRA" && esWalletValida) || (tipoOp === "VENTA" && esBancoValido));
-            
-            const btnSubmit = document.getElementById('btnSubmitForm');
-            if (btnSubmit) {
-                btnSubmit.toggleAttribute('disabled', !todoOk);
-            }
-        }
-
-        async function procesarEnvio(event) {
-            event.preventDefault();
-            const tipoOpEl = document.querySelector('input[name="tipo_op"]:checked');
-            const criptoEl = document.getElementById('cripto');
-            const montoInputEl = document.getElementById('monto_input');
-            const montoDivisaEl = document.getElementById('monto_divisa');
-            const valEstimadoEl = document.getElementById('valEstimado');
-            if (!tipoOpEl || !criptoEl || !montoInputEl || !montoDivisaEl || !valEstimadoEl) return;
-
-            const tipoOp = tipoOpEl.value;
-            const cripto = criptoEl.value;
-            const montoNum = montoInputEl.value;
-            const montoDivisa = montoDivisaEl.value;
-            const finalEst = valEstimadoEl.innerText;
-
-            // Insertamos la orden en la base de datos
-            const { data, error } = await supabase.from('ordenes').insert([{
-                titular: "Cliente Web", 
-                tipo: tipoOp, 
-                cripto: cripto, 
-                monto: `${montoNum} ${montoDivisa}`, 
-                resultado: finalEst, 
-                estado: 'pendiente'
-            }]).select().single();
-
-            if (error || !data) { 
-                showToast("Error al procesar orden remota.", "error"); 
-                console.error(error);
-                return; 
-            }
-
-            let idOrden = data.id;
-            localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
-            localStorage.setItem('orden_activa_id', idOrden);
-            
-            activarMecanismoBloqueo(15 * 60, idOrden);
-
-            let mensaje = `🚨 *Nueva Solicitud #${idOrden}* 🚨\n\nOp: ${tipoOp}\nMoneda: ${cripto}\nMonto: ${montoNum} ${montoDivisa}\nEst: ${finalEst}`;
-            if (tipoOp === "COMPRA") { 
-                const walletCli = document.getElementById('wallet_cliente');
-                if (walletCli) mensaje += `\nWallet destino: ${walletCli.value}`; 
-            } else {
-                const medioLocal = document.getElementById('medio_local');
-                const vBancoOtro = document.getElementById('v_banco_otro');
-                const vCuenta = document.getElementById('v_cuenta');
-                const vCedula = document.getElementById('v_cedula');
-                
-                let medio = medioLocal ? medioLocal.value : "";
-                if (medio === "Transferencia bancaria (otro banco)" && vBancoOtro) medio = vBancoOtro.value.trim();
-                mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${vCuenta ? vCuenta.value : ""}\nCI: ${vCedula ? vCedula.value : ""}`;
-            }
-
-            window.open(`https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, '_blank');
-        }
-
-        function activarMecanismoBloqueo(segundos, idOrden) {
-            const overlay = document.getElementById('lockOverlay');
-            if (overlay) overlay.style.display = 'flex';
-            let restante = segundos;
-
-            if(channelOrdenes) channelOrdenes.unsubscribe();
-
-            channelOrdenes = supabase.channel(`orden-${idOrden}`)
-                .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
-                    if (payload.new.estado === 'completado') {
-                        finalizarBloqueoExitoso();
-                    } else if (payload.new.estado === 'cancelado') {
-                        cancelarPedido();
-                    }
-                }).subscribe();
-
-            clearInterval(window.timerInterval);
-            window.timerInterval = setInterval(() => {
-                let mins = Math.floor(restante / 60); 
-                let segs = restante % 60;
-                setElementText('timer', `${mins < 10 ? '0' : ''}${mins}:${segs < 10 ? '0' : ''}${segs}`);
-                if(--restante < 0) { cancelarPedido(); }
-            }, 1000);
-        }
-
-        function finalizarBloqueoExitoso() {
-            clearInterval(window.timerInterval);
-            if(channelOrdenes) channelOrdenes.unsubscribe();
-            localStorage.removeItem('block_exp');
-            localStorage.removeItem('orden_activa_id');
-            
-            const overlay = document.getElementById('lockOverlay');
-            if (overlay) overlay.style.display = 'none';
-            
-            const form = document.getElementById('exchangeForm');
-            if (form) form.reset();
-            
-            const box = document.getElementById('boxEstimado');
-            const gsBox = document.getElementById('gsHighlightBox');
-            if (box) box.classList.add('hidden');
-            if (gsBox) gsBox.classList.add('hidden');
-            
-            esWalletValida = esBancoValido = esMontoValido = esCedulaValida = false;
-            actualizarEstadoCedula(); 
-            manejarCambioMedioLocal();
-            showToast("¡Transacción liberada con éxito!", "success");
-            actualizarHistorialPantalla();
-        }
-
-        async function verificarBloqueosActivos() {
-            const exp = localStorage.getItem('block_exp');
-            const idOrden = localStorage.getItem('orden_activa_id');
-            if(exp && idOrden) {
-                const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
-                if(t > 0) {
-                    const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
-                    if (data && data.estado === 'completado') { finalizarBloqueoExitoso(); } 
-                    else if (data && data.estado === 'cancelado') { cancelarPedido(); }
-                    else { activarMecanismoBloqueo(t, idOrden); }
-                } else { cancelarPedido(); }
-            }
-        }
-
-        async function cancelarPedido() {
-            clearInterval(window.timerInterval);
-            if(channelOrdenes) channelOrdenes.unsubscribe();
-            const idOrden = localStorage.getItem('orden_activa_id');
-            if (idOrden) { 
-                await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden); 
-            }
-            localStorage.removeItem('block_exp'); 
-            localStorage.removeItem('orden_activa_id');
-            
-            const overlay = document.getElementById('lockOverlay');
-            if (overlay) overlay.style.display = 'none';
-            showToast("Orden expirada o cancelada.", "error");
-        }
-
-        async function actualizarHistorialPantalla() {
-            try {
-                const { data } = await supabase.from('ordenes').select('*').eq('estado', 'completado').order('created_at', { ascending: false }).limit(4);
-                const contenedor = document.getElementById('historialLista');
-                if(!contenedor) return;
-                if(!data || data.length === 0) {
-                    contenedor.innerHTML = "No hay operaciones completadas aún.";
-                    return;
+        } else {
+            box.style.borderColor = "var(--accent-orange)"; box.style.color = "var(--accent-orange)";
+            if (modoCalculo === "GASTAR") {
+                if (divisaSeleccionada === "Gs") {
+                    let totalBrutoCripto = monto / tasa;
+                    let comisionCripto = totalBrutoCripto * 0.01;
+                    let criptoAEnviar = totalBrutoCripto + comisionCripto;
+                    txtEst.innerText = `${criptoAEnviar.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef} a enviar`;
+                    txtCom.innerText = `${comisionCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
+                    descuentoGsCalculado = monto;
+                } else {
+                    let cryptoMonto = (divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto;
+                    let totalBrutoGs = cryptoMonto * tasa;
+                    txtEst.innerText = `${Math.round(totalBrutoGs * 0.99).toLocaleString('de-DE')} Gs`;
+                    txtCom.innerText = `${Math.round(totalBrutoGs * 0.01).toLocaleString('de-DE')} Gs`;
+                    descuentoGsCalculado = totalBrutoGs * 0.99;
                 }
-                contenedor.innerHTML = "";
-                data.forEach(x => {
-                    let f = new Date(x.created_at).toLocaleDateString('es-PY');
-                    contenedor.innerHTML += `<div class="historial-item"><div><b>${f}</b> - <span style="color:${x.tipo==='COMPRA'?'var(--success)':'var(--danger)'}">${x.tipo}</span></div><div>${x.monto} ➔ <span style="color:var(--primary)">${x.resultado}</span></div></div>`;
-                });
-            } catch (err) {
-                console.error("Error al renderizar historial:", err);
+            } else { 
+                if (divisaSeleccionada === "Gs") {
+                    let totalBrutoCripto = monto / tasa;
+                    let comisionCripto = totalBrutoCripto * 0.01;
+                    let criptoAEnviar = totalBrutoCripto + comisionCripto;
+                    txtEst.innerText = `${criptoAEnviar.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef} a enviar`;
+                    txtCom.innerText = `${comisionCripto.toFixed(decimalesCripto(criptoRef)).replace('.', ',')} ${criptoRef}`;
+                    descuentoGsCalculado = monto;
+                } else {
+                    let cryptoMonto = (divisaSeleccionada === "$") ? (montoEnGsDeControl / tasa) : monto;
+                    let brutoGs = cryptoMonto * tasa;
+                    let gsNeto = brutoGs * 0.99;
+                    let comisionGs = brutoGs * 0.01;
+                    txtEst.innerText = `${Math.round(gsNeto).toLocaleString('de-DE')} Gs`;
+                    txtCom.innerText = `${Math.round(comisionGs).toLocaleString('de-DE')} Gs`;
+                    descuentoGsCalculado = gsNeto;
+                }
             }
         }
-    </script>
+
+        montoGsFinal = (tipoOp === "COMPRA") ? montoGsFinal : descuentoGsCalculado;
+
+        const gsBox = document.getElementById('gsHighlightBox');
+        const gsLabel = document.getElementById('gsHighlightLabel');
+        const gsValue = document.getElementById('gsHighlightValue');
+        gsLabel.innerText = (tipoOp === "COMPRA") ? "VAS A PAGAR" : "VAS A RECIBIR";
+        gsValue.innerText = `${Math.round(montoGsFinal).toLocaleString('de-DE')} Gs`;
+        gsBox.classList.remove('hidden');
+
+        const usdAGs = obtenerTasaUsdAGs();
+        const gsMinimo = LIMITE_USD_MINIMO[criptoRef] * usdAGs;
+        const gsMaximoEfectivo = Math.min(LIMITE_GS_MAXIMO, LIMITE_USD_MAXIMO * usdAGs);
+        let superaLimitesFisicos = (montoEnGsDeControl < gsMinimo || montoEnGsDeControl > gsMaximoEfectivo);
+        let superaReservaGs = (tipoOp === "VENTA" && descuentoGsCalculado > fondosActuales.gs);
+        let superaReservaCrypto = (tipoOp === "COMPRA" && descuentoCryptoCalculado > fondosActuales[criptoRef]);
+
+        if(superaLimitesFisicos || superaReservaGs || superaReservaCrypto) {
+            alerta.style.display = "block";
+            alerta.innerText = (superaReservaGs || superaReservaCrypto) ? "⚠️ Sin reservas suficientes en la web." : `⚠️ Permitido desde ${Math.round(gsMinimo).toLocaleString('de-DE')} Gs (≈$${LIMITE_USD_MINIMO[criptoRef]}) hasta ${Math.round(gsMaximoEfectivo).toLocaleString('de-DE')} Gs.`;
+            esMontoValido = false;
+        } else {
+            alerta.style.display = "none";
+            esMontoValido = true;
+            transaccionPendiente = { tipo: tipoOp, cripto: criptoRef, descuentoGs: descuentoGsCalculado, descuentoCrypto: descuentoCryptoCalculado };
+        }
+        validarFormularioCompleto();
+    }
+
+    function validarWalletEVM(input) {
+        esWalletValida = /^0x[a-fA-F0-9]{40}$/.test(input.value.trim());
+        input.classList.toggle('wallet-alarma', !esWalletValida);
+        const msg = document.getElementById('validadorWalletTxt');
+        msg.innerText = esWalletValida ? "✅ Wallet válida." : "🚨 Dirección inválida.";
+        msg.className = "validador-status " + (esWalletValida ? "valido" : "invalido");
+        validarFormularioCompleto();
+    }
+
+    function alternarTipoIdentificador() {
+        tipoIdentificadorBanco = (tipoIdentificadorBanco === "CUENTA") ? "ALIAS" : "CUENTA";
+        const input = document.getElementById('v_cuenta');
+        const btn = document.getElementById('btnSwitchIdentificador');
+        const selectTipo = document.getElementById('v_tipo');
+        if (tipoIdentificadorBanco === "ALIAS") {
+            input.placeholder = "Alias de tu cuenta";
+            btn.innerText = "🔄 Usar Nro de Cuenta en vez de Alias";
+            selectTipo.classList.add('hidden');
+        } else {
+            input.placeholder = "Nro Cuenta";
+            btn.innerText = "🔄 Usar Alias en vez de Nro de Cuenta";
+            selectTipo.classList.remove('hidden');
+        }
+        input.value = "";
+        validarDatosBancoVendedor();
+    }
+
+    function manejarCambioMedioLocal() {
+        const esOtroBanco = document.getElementById('medio_local').value === "Transferencia bancaria (otro banco)";
+        document.getElementById('v_banco_otro').classList.toggle('hidden', !esOtroBanco);
+        if (!esOtroBanco) { document.getElementById('v_banco_otro').value = ""; }
+        validarDatosBancoVendedor();
+    }
+
+    function validarDatosBancoVendedor() {
+        const ci = document.getElementById('v_cedula').value.replace(/\D/g, "");
+        const ctaRaw = document.getElementById('v_cuenta').value.trim();
+        
+        if (tipoIdentificadorBanco === "CUENTA") {
+            document.getElementById('v_cuenta').value = ctaRaw.replace(/\D/g, "");
+        }
+        
+        let ctaFinal = document.getElementById('v_cuenta').value.trim();
+        esBancoValido = (tipoIdentificadorBanco === "ALIAS" ? ctaFinal.length >= 3 : ctaFinal.length >= 5) && ci.length >= 5;
+        
+        const esOtroBanco = document.getElementById('medio_local').value === "Transferencia bancaria (otro banco)";
+        if (esOtroBanco) {
+            const bancoOtro = document.getElementById('v_banco_otro').value.trim();
+            esBancoValido = esBancoValido && bancoOtro.length >= 3;
+        }
+        document.getElementById('validadorBancoTxt').className = "validador-status " + (esBancoValido ? "valido" : "invalido");
+        document.getElementById('validadorBancoTxt').innerText = esBancoValido ? "✅ Datos listos." : "❌ Datos incompletos.";
+        validarFormularioCompleto();
+    }
+
+    function validarFormularioCompleto() {
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        let todoOk = esMontoValido && esCedulaValida && ((tipoOp === "COMPRA" && esWalletValida) || (tipoOp === "VENTA" && esBancoValido));
+        document.getElementById('btnSubmitForm').toggleAttribute('disabled', !todoOk);
+    }
+
+    function copiarDatosEmpresa() { navigator.clipboard.writeText("3652363"); showToast("Alias ueno bank copiado.", "success"); }
+    function copiarWalletEmpresa() { navigator.clipboard.writeText(WALLET_EMPRESA); showToast("Wallet copiada.", "success"); }
+
+    // Función que se ejecuta automáticamente cuando Supabase cambia el estado de la transacción a 'completado'
+    async function finalizarBloqueoExitoso(idOrden) {
+        clearInterval(timerInterval);
+        if (channelOrdenes) channelOrdenes.unsubscribe();
+        
+        // Descontar saldos de forma local basándonos en la orden procesada
+        let cacheTx = JSON.parse(localStorage.getItem('tx_pendiente_cache'));
+        if (cacheTx) {
+            if (cacheTx.tipo === "COMPRA") {
+                const c = cacheTx.cripto;
+                fondosActuales[c] = Math.max(0, fondosActuales[c] - cacheTx.descuentoCrypto);
+            } else if (cacheTx.tipo === "VENTA") {
+                fondosActuales.gs = Math.max(0, fondosActuales.gs - cacheTx.descuentoGs);
+            }
+            
+            // Actualizamos en Supabase para que coincida
+            await supabase.from('reservas').update({
+                gs: fondosActuales.gs,
+                usdc: fondosActuales.USDC,
+                usdt: fondosActuales.USDT,
+                bnb: fondosActuales.BNB
+            }).eq('id', 1);
+        }
+
+        localStorage.removeItem('block_exp');
+        localStorage.removeItem('orden_activa_id');
+        localStorage.removeItem('tx_pendiente_cache');
+
+        document.getElementById('lockOverlay').style.display = 'none';
+        document.getElementById('exchangeForm').reset();
+        document.getElementById('boxEstimado').classList.add('hidden');
+        document.getElementById('gsHighlightBox').classList.add('hidden');
+
+        esWalletValida = esBancoValido = esMontoValido = esCedulaValida = false;
+        actualizarEstadoCedula();
+        manejarCambioMedioLocal();
+        showToast("¡Operación liberada con éxito en la Blockchain!", "success");
+        await actualizarHistorialPantalla();
+    }
+
+    // REGISTRO EN SUPABASE + WHATSAPP
+    async function procesarEnvio(event) {
+        event.preventDefault();
+        const tipoOp = document.querySelector('input[name="tipo_op"]:checked').value;
+        const nombre = document.getElementById('nombre').value;
+        const cripto = document.getElementById('cripto').value;
+        const montoNum = document.getElementById('monto_input').value;
+        const montoDivisa = document.getElementById('monto_divisa').value;
+        const finalEst = document.getElementById('valEstimado').innerText;
+
+        // Insertar en tu tabla "ordenes" de Supabase
+        const { data, error } = await supabase.from('ordenes').insert([{
+            titular: nombre,
+            tipo: tipoOp,
+            cripto: cripto,
+            monto: `${montoNum} ${montoDivisa}`,
+            resultado: finalEst,
+            estado: 'pendiente'
+        }]).select().single();
+
+        if (error || !data) {
+            showToast("Error de comunicación con el servidor remoto.", "error");
+            console.error(error);
+            return;
+        }
+
+        const idOrden = data.id;
+
+        let mensaje = `🚨 *Nueva Solicitud #${idOrden}* 🚨\n\nTitular: ${nombre}\nOp: ${tipoOp}\nMoneda: ${cripto}\nMonto: ${montoNum} ${montoDivisa}\nEst: ${finalEst}`;
+
+        if (tipoOp === "COMPRA") {
+            mensaje += `\nWallet destino: ${document.getElementById('wallet_cliente').value}`;
+        } else {
+            let medio = document.getElementById('medio_local').value;
+            if (medio === "Transferencia bancaria (otro banco)") medio = document.getElementById('v_banco_otro').value.trim();
+            mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${document.getElementById('v_cuenta').value}\nCI: ${document.getElementById('v_cedula').value}`;
+        }
+
+        // Almacenar estados temporales locales
+        localStorage.setItem('tx_pendiente_cache', JSON.stringify(transaccionPendiente));
+        localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
+        localStorage.setItem('orden_activa_id', idOrden);
+        
+        activarMecanismoBloqueo(15 * 60, idOrden);
+
+        window.open(`https://wa.me/${TELEFONO_WHATSAPP}?text=${encodeURIComponent(mensaje)}`, '_blank');
+    }
+
+    function activarMecanismoBloqueo(segundos, idOrden) {
+        document.getElementById('lockOverlay').style.display = 'flex';
+        let restante = segundos;
+
+        if (channelOrdenes) channelOrdenes.unsubscribe();
+
+        // Suscripción en Tiempo Real al estado de la orden específica en Supabase
+        channelOrdenes = supabase.channel(`orden-${idOrden}`)
+            .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
+                if (payload.new.estado === 'completado') {
+                    finalizarBloqueoExitoso(idOrden);
+                } else if (payload.new.estado === 'cancelado') {
+                    cancelarPedido();
+                }
+            }).subscribe();
+
+        clearInterval(timerInterval);
+        timerInterval = setInterval(() => {
+            let mins = Math.floor(restante / 60);
+            let segs = restante % 60;
+            document.getElementById('timer').innerText = `${mins<10?'0':''}${mins}:${segs<10?'0':''}${segs}`;
+            if(--restante < 0) { 
+                clearInterval(timerInterval); 
+                cancelarPedido(); 
+            }
+        }, 1000);
+    }
+
+    async function verificarBloqueosActivos() {
+        const exp = localStorage.getItem('block_exp');
+        const idOrden = localStorage.getItem('orden_activa_id');
+        if (exp && idOrden) {
+            const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
+            if (t > 0) {
+                // Verificar estado real de la base de datos por si se completó mientras estaba cerrado
+                const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
+                if (data && data.estado === 'completado') {
+                    await finalizarBloqueoExitoso(idOrden);
+                } else if (data && data.estado === 'cancelado') {
+                    await cancelarPedido();
+                } else {
+                    activarMecanismoBloqueo(t, idOrden);
+                }
+            } else {
+                await cancelarPedido();
+            }
+        }
+    }
+
+    async function cancelarPedido() {
+        clearInterval(timerInterval);
+        if (channelOrdenes) channelOrdenes.unsubscribe();
+        
+        const idOrden = localStorage.getItem('orden_activa_id');
+        if (idOrden) {
+            await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden);
+        }
+
+        localStorage.removeItem('block_exp');
+        localStorage.removeItem('orden_activa_id');
+        localStorage.removeItem('tx_pendiente_cache');
+        document.getElementById('lockOverlay').style.display = 'none';
+        showToast("Orden expirada o cancelada de forma segura.", "error");
+    }
+
+    // HISTORIAL EN TIEMPO REAL DESDE TU BASE DE DATOS
+    async function actualizarHistorialPantalla() {
+        try {
+            const { data, error } = await supabase
+                .from('ordenes')
+                .select('*')
+                .eq('estado', 'completado')
+                .order('created_at', { ascending: false })
+                .limit(4);
+
+            const contenedor = document.getElementById('historialLista');
+            if(!contenedor) return;
+
+            if (error || !data || data.length === 0) {
+                contenedor.innerHTML = `<div style="font-size:11px; color:var(--text-muted); font-style: italic;">No hay operaciones registradas aún.</div>`;
+                return;
+            }
+
+            contenedor.innerHTML = "";
+            data.forEach(x => {
+                let fechaFormateada = new Date(x.created_at).toLocaleDateString('es-PY') + " " + new Date(x.created_at).toLocaleTimeString('es-PY', {hour:'2-digit', minute:'2-digit'});
+                contenedor.innerHTML += `
+                    <div class="historial-item">
+                        <div>
+                            <b>${fechaFormateada}</b> - 
+                            <span style="color:${x.tipo==='COMPRA'?'var(--success)':'var(--danger)'}">${x.tipo}</span>
+                        </div>
+                        <div>
+                            ${x.monto} ➔ <span style="color:var(--primary)">${x.resultado}</span>
+                        </div>
+                    </div>`;
+            });
+        } catch (err) {
+            console.error("Error al renderizar el historial:", err);
+        }
+    }
+</script>
 </body>
 </html>
