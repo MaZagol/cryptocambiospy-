@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoCambios PY - Sistema Profesional v1.0 (Conectado)</title>
+    <title>CryptoCambios PY - Sistema Profesional v9.6 (Conectado)</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -362,8 +362,8 @@
         .hidden { display: none !important; }
     </style>
 
-    <!-- SDK Oficial de Supabase -->
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- SDK Oficial de Supabase desde CDN de forma segura -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.8/dist/umd/supabase.js"></script>
 </head>
 <body>
 
@@ -577,11 +577,22 @@
 </a>
 
 <script>
-    // 1. CREDENCIALES DE SUPABASE INTEGRADAS (Instanciado de forma correcta)
+    // 1. CREDENCIALES DE SUPABASE INTEGRADAS
     const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
 
-    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let supabaseClient = null;
+
+    // Inicialización del cliente evitando colisiones globales
+    try {
+        if (window.supabase) {
+            supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        } else {
+            alert("Error crítico: No se pudo cargar el SDK de Supabase desde la CDN.");
+        }
+    } catch(e) {
+        alert("Error al inicializar el cliente de base de datos: " + e.message);
+    }
 
     const TELEFONO_WHATSAPP = "595961101538";
     const WALLET_EMPRESA = "0x3e8541371849EEdDb3C093605477Bf9e3589C110";
@@ -607,13 +618,17 @@
         actualizarPizarraVisual();
         sincronizarDivisaMonto();
         
-        // Carga y escucha en vivo de reservas
-        await cargarFondosDesdeSupabase();
-        escucharCambiosFondos();
+        // Carga y escucha de reservas con diagnóstico de fallos
+        if (supabaseClient) {
+            await cargarFondosDesdeSupabase();
+            escucharCambiosFondos();
+            await verificarBloqueosActivos();
+            await actualizarHistorialPantalla();
+        } else {
+            alert("El cliente de base de datos no está listo.");
+        }
         
         manejarCambioModo();
-        await verificarBloqueosActivos();
-        await actualizarHistorialPantalla();
         document.getElementById('anioActual').innerText = new Date().getFullYear();
     };
 
@@ -659,18 +674,31 @@
         document.getElementById('piz-bnb-v').innerText = PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs";
     }
 
-    // CONEXIÓN DIRECTA A SUPABASE
+    // CONEXIÓN DIRECTA A SUPABASE CON DETECCIÓN DE ERRORES
     async function cargarFondosDesdeSupabase() {
         try {
             const { data, error } = await supabaseClient.from('reservas').select('*').eq('id', 1).single();
-            if (!error && data) {
+            if (error) {
+                console.error("Error cargando reservas:", error);
+                alert("Supabase Error: No se pudo leer la tabla 'reservas'. Mensaje: " + error.message);
+                
+                // Valores visuales de fallback para que no quede eternamente cargando si la BD falla temporalmente
+                document.getElementById('saldo_gs_display').innerText = "Verificando...";
+                document.getElementById('saldo_usdc_display').innerText = "Verificando...";
+                document.getElementById('saldo_usdt_display').innerText = "Verificando...";
+                document.getElementById('saldo_bnb_display').innerText = "Verificando...";
+                return;
+            }
+            
+            if (data) {
                 fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
                 renderizarSaldosPantalla();
             } else {
-                console.error("Error cargando reservas:", error);
+                alert("Alerta: No se encontró la fila con ID 1 en la tabla 'reservas' de tu base de datos.");
             }
         } catch (err) {
             console.error("Error de conexión:", err);
+            alert("Error de conexión con el servidor de Supabase: " + err.message);
         }
     }
 
@@ -682,6 +710,7 @@
     }
 
     function escucharCambiosFondos() {
+        if (!supabaseClient) return;
         supabaseClient.channel('cambios-reservas')
             .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
                 fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
@@ -1046,7 +1075,7 @@
 
         if (channelOrdenes) channelOrdenes.unsubscribe();
 
-        // Suscripción Realtime corregida
+        // Suscripción Realtime
         channelOrdenes = supabaseClient.channel(`orden-${idOrden}`)
             .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
                 if (payload.new.estado === 'completado') {
