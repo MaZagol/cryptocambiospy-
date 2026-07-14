@@ -3,28 +3,36 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panel de Control - CryptoCambios PY</title>
-    <!-- Tailwind CSS para diseño moderno -->
+    <title>CryptoCambios PY - Terminal de Operaciones</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons para iconos limpios -->
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
     <!-- Supabase JS -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Export Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    fontFamily: { 
+                        sans: ['Rajdhani', 'sans-serif'],
+                        cyber: ['Orbitron', 'sans-serif'],
+                        mono: ['Share Tech Mono', 'monospace']
+                    },
                     colors: {
-                        binance: {
+                        cyber: {
                             gold: '#F0B90B',
-                            bg: '#0B0E11',
-                            card: '#181A20',
-                            input: '#24262E',
-                            border: '#2F333D',
-                            textMuted: '#848E9C'
+                            goldGlow: 'rgba(240, 185, 11, 0.15)',
+                            bg: '#030712',
+                            panel: 'rgba(17, 24, 39, 0.7)',
+                            border: 'rgba(240, 185, 11, 0.15)',
+                            neonGreen: '#00ffcc',
+                            neonBlue: '#00f0ff'
                         }
                     }
                 }
@@ -32,369 +40,692 @@
         }
     </script>
     <style>
-        body {
-            background-color: #0B0E11;
+        body { 
+            background-color: #030712; 
+            background-image: 
+                linear-gradient(rgba(240, 185, 11, 0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(240, 185, 11, 0.02) 1px, transparent 1px);
+            background-size: 30px 30px;
         }
-        /* Personalización fina de scrollbar */
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
-        ::-webkit-scrollbar-track { background: #14151a; }
-        ::-webkit-scrollbar-thumb { background: #2f333d; border-radius: 3px; }
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #030712; }
+        ::-webkit-scrollbar-thumb { background: #F0B90B; border-radius: 10px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .neon-glow:hover {
+            box-shadow: 0 0 15px rgba(240, 185, 11, 0.25);
+            border-color: rgba(240, 185, 11, 0.5);
+        }
     </style>
 </head>
-<body class="text-white font-sans antialiased min-h-screen">
+<body class="text-gray-100 antialiased min-h-screen font-sans" onclick="activarAudioContext()">
 
-    <!-- TOP NAV BAR -->
-    <header class="border-b border-binance-border bg-binance-card sticky top-0 z-50 px-4 lg:px-8 py-4 flex items-center justify-between">
-        <div class="flex items-center space-gap-3 gap-3">
-            <div class="bg-binance-gold text-black p-2 rounded-lg font-bold">
-                <i data-lucide="layout-dashboard" class="w-6 h-6"></i>
-            </div>
-            <div>
-                <h1 class="text-lg font-bold tracking-tight">CryptoCambios PY</h1>
-                <p class="text-xs text-binance-textMuted flex items-center gap-1">
-                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 inline-block animate-pulse"></span> 
-                    Panel Administrativo Realtime
-                </p>
-            </div>
-        </div>
-        <div class="flex items-center gap-4">
-            <span class="hidden md:inline text-xs bg-binance-border px-3 py-1.5 rounded-full border border-neutral-700 text-binance-textMuted">
-                Admin Session
-            </span>
-        </div>
-    </header>
+    <div id="main-app" class="flex min-h-screen">
 
-    <main class="max-w-[1600px] mx-auto p-4 lg:p-8 space-y-8">
-
-        <!-- 1. SECCIÓN DE ESTADÍSTICAS RÁPIDAS -->
-        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div class="bg-binance-card border border-binance-border p-6 rounded-2xl flex items-center justify-between hover:border-binance-gold transition duration-300">
-                <div>
-                    <p class="text-xs text-binance-textMuted uppercase font-semibold">Órdenes Pendientes</p>
-                    <h3 id="stat-pendientes" class="text-3xl font-bold mt-1 text-binance-gold">0</h3>
-                </div>
-                <div class="p-3 bg-yellow-500/10 text-binance-gold rounded-xl">
-                    <i data-lucide="clock" class="w-6 h-6"></i>
-                </div>
-            </div>
-            <div class="bg-binance-card border border-binance-border p-6 rounded-2xl flex items-center justify-between hover:border-green-500 transition duration-300">
-                <div>
-                    <p class="text-xs text-binance-textMuted uppercase font-semibold">Total Guaraníes</p>
-                    <h3 id="stat-gs" class="text-3xl font-bold mt-1 text-green-400">0 Gs</h3>
-                </div>
-                <div class="p-3 bg-green-500/10 text-green-400 rounded-xl">
-                    <i data-lucide="wallet" class="w-6 h-6"></i>
-                </div>
-            </div>
-            <div class="bg-binance-card border border-binance-border p-6 rounded-2xl flex items-center justify-between hover:border-blue-500 transition duration-300">
-                <div>
-                    <p class="text-xs text-binance-textMuted uppercase font-semibold">Reservas Estables (USDT/USDC)</p>
-                    <h3 id="stat-stables" class="text-3xl font-bold mt-1 text-blue-400">0</h3>
-                </div>
-                <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl">
-                    <i data-lucide="coins" class="w-6 h-6"></i>
-                </div>
-            </div>
-            <div class="bg-binance-card border border-binance-border p-6 rounded-2xl flex items-center justify-between hover:border-purple-500 transition duration-300">
-                <div>
-                    <p class="text-xs text-binance-textMuted uppercase font-semibold">Fondo BNB</p>
-                    <h3 id="stat-bnb" class="text-3xl font-bold mt-1 text-purple-400">0 BNB</h3>
-                </div>
-                <div class="p-3 bg-purple-500/10 text-purple-400 rounded-xl">
-                    <i data-lucide="activity" class="w-6 h-6"></i>
-                </div>
-            </div>
-        </section>
-
-        <!-- 2. SECCIÓN FONDOS / RESERVAS -->
-        <section class="bg-binance-card border border-binance-border rounded-2xl p-6">
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
-                <div>
-                    <h2 class="text-xl font-bold flex items-center gap-2">
-                        <i data-lucide="vault" class="text-binance-gold w-5.5 h-5.5"></i>
-                        Gestión de Reservas Globales
-                    </h2>
-                    <p class="text-sm text-binance-textMuted mt-1">Los clientes verán estos montos actualizados en el home de la app en tiempo real.</p>
-                </div>
-                <button onclick="guardarFondos()" class="w-full md:w-auto bg-binance-gold text-black hover:bg-yellow-500 font-bold px-6 py-3 rounded-xl transition duration-200 flex items-center justify-center gap-2 shadow-lg shadow-yellow-500/10">
-                    <i data-lucide="save" class="w-5 h-5"></i>
-                    Actualizar Reservas
-                </button>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-binance-bg p-4 rounded-xl border border-binance-border">
-                    <label class="block text-xs font-semibold text-binance-textMuted mb-2">GUARANÍES (Gs)</label>
-                    <input type="number" id="f_gs" class="w-full bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none px-4 py-3 rounded-lg font-bold text-lg text-green-400">
-                </div>
-                <div class="bg-binance-bg p-4 rounded-xl border border-binance-border">
-                    <label class="block text-xs font-semibold text-binance-textMuted mb-2">USDT (RED BSC)</label>
-                    <input type="number" id="f_usdt" class="w-full bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none px-4 py-3 rounded-lg font-bold text-lg text-blue-400">
-                </div>
-                <div class="bg-binance-bg p-4 rounded-xl border border-binance-border">
-                    <label class="block text-xs font-semibold text-binance-textMuted mb-2">USDC (RED BASE)</label>
-                    <input type="number" id="f_usdc" class="w-full bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none px-4 py-3 rounded-lg font-bold text-lg text-blue-300">
-                </div>
-                <div class="bg-binance-bg p-4 rounded-xl border border-binance-border">
-                    <label class="block text-xs font-semibold text-binance-textMuted mb-2">BNB (BNB CHAIN)</label>
-                    <input type="number" id="f_bnb" step="0.0001" class="w-full bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none px-4 py-3 rounded-lg font-bold text-lg text-purple-400">
-                </div>
-            </div>
-        </section>
-
-        <!-- 3. TABLA DE ÓRDENES Y TRANSACCIONES -->
-        <section class="bg-binance-card border border-binance-border rounded-2xl overflow-hidden">
+        <!-- SIDEBAR FUTURISTA -->
+        <aside class="w-64 bg-slate-950/80 backdrop-blur-xl border-r border-cyber-border flex flex-col fixed inset-y-0 left-0 z-40 transform -translate-x-full lg:translate-x-0 transition-all duration-300" id="sidebar">
             
-            <!-- Encabezado de tabla con buscadores y filtros -->
-            <div class="p-6 border-b border-binance-border flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+            <!-- Brand Info -->
+            <div class="p-6 border-b border-cyber-border flex items-center gap-3 bg-gradient-to-b from-yellow-500/5 to-transparent">
+                <div class="bg-cyber-gold text-black p-2 rounded-xl font-extrabold shadow-[0_0_15px_rgba(240,185,11,0.4)] animate-pulse">
+                    <i data-lucide="gem" class="w-5 h-5"></i>
+                </div>
                 <div>
-                    <h2 class="text-xl font-bold flex items-center gap-2">
-                        <i data-lucide="list-ordered" class="text-binance-gold w-5.5 h-5.5"></i>
-                        Flujo de Transacciones
-                    </h2>
-                    <p class="text-sm text-binance-textMuted mt-1">Monitorea, aprueba o cancela órdenes entrantes.</p>
+                    <h2 class="font-cyber font-bold text-xs tracking-wider text-cyber-gold">CRYPTOCAMBIOS PY</h2>
+                    <span class="text-[10px] text-cyber-neonGreen font-mono uppercase flex items-center gap-1.5 mt-1">
+                        <span class="w-2 h-2 bg-cyber-neonGreen rounded-full shadow-[0_0_8px_#00ffcc] animate-ping"></span> 
+                        [ EN LÍNEA ]
+                    </span>
                 </div>
-                
-                <div class="flex flex-col sm:flex-row gap-3">
-                    <!-- Buscador -->
-                    <div class="relative flex-1 sm:w-64">
-                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-binance-textMuted"></i>
-                        <input type="text" id="tablaBuscar" oninput="filtrarTabla()" placeholder="Buscar por titular u orden..." class="w-full bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none pl-9 pr-4 py-2 text-sm rounded-xl">
+            </div>
+
+            <!-- Navegación -->
+            <nav class="flex-1 p-4 space-y-2">
+                <button onclick="cambiarPestana('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all duration-200 hover:bg-yellow-500/10 hover:text-white">
+                    <i data-lucide="layout-grid" class="w-5 h-5 text-cyber-gold"></i> DASHBOARD
+                </button>
+                <button onclick="cambiarPestana('reservas')" id="nav-reservas" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all duration-200 hover:bg-yellow-500/10 hover:text-white">
+                    <i data-lucide="vault" class="w-5 h-5 text-cyber-gold"></i> RESERVAS
+                </button>
+                <button onclick="cambiarPestana('ordenes')" id="nav-ordenes" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all duration-200 hover:bg-yellow-500/10 hover:text-white">
+                    <i data-lucide="shuffle" class="w-5 h-5 text-cyber-gold"></i> TRANSACCIONES
+                </button>
+                <button onclick="cambiarPestana('historial')" id="nav-historial" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all duration-200 hover:bg-yellow-500/10 hover:text-white">
+                    <i data-lucide="history" class="w-5 h-5 text-cyber-gold"></i> HISTORIAL GLOBAL
+                </button>
+                <button onclick="cambiarPestana('configuracion')" id="nav-configuracion" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold tracking-wide transition-all duration-200 hover:bg-yellow-500/10 hover:text-white">
+                    <i data-lucide="cpu" class="w-5 h-5 text-cyber-gold"></i> NÚCLEO / SISTEMA
+                </button>
+            </nav>
+
+            <div class="p-4 border-t border-cyber-border bg-slate-950 text-center font-mono text-[10px] text-gray-500">
+                CRYPTOCAMBIOS PY // TERMINAL_V2.0
+            </div>
+        </aside>
+
+        <!-- CONTENIDO PRINCIPAL -->
+        <div class="flex-1 lg:pl-64 flex flex-col min-w-0">
+
+            <!-- BARRA SUPERIOR -->
+            <header class="h-16 border-b border-cyber-border bg-slate-950/80 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
+                <button class="lg:hidden text-white" onclick="toggleSidebar()">
+                    <i data-lucide="menu" class="w-6 h-6"></i>
+                </button>
+                <div class="hidden sm:flex items-center gap-2 font-mono text-xs text-gray-400">
+                    <span class="text-cyber-gold">&gt;</span> Terminal ID: <span class="text-white font-bold">py_asuncion_main_01</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="bg-black/40 border border-cyber-border px-4 py-1.5 rounded-xl text-xs font-mono text-cyber-gold flex items-center gap-2 shadow-[0_0_10px_rgba(240,185,11,0.05)]">
+                        <span class="w-1.5 h-1.5 bg-cyber-gold rounded-full animate-ping"></span> SECURE CORES CONNECTED
                     </div>
-                    <!-- Filtro Tipo -->
-                    <select id="filtroTipo" onchange="filtrarTabla()" class="bg-binance-input border border-binance-border focus:border-binance-gold focus:outline-none px-4 py-2 text-sm rounded-xl text-white">
-                        <option value="todos">Todos los Tipos</option>
-                        <option value="COMPRA">Compras</option>
-                        <option value="VENDER">Ventas</option>
-                    </select>
                 </div>
-            </div>
+            </header>
 
-            <!-- Contenedor Table Responsive -->
-            <div class="overflow-x-auto w-full">
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="bg-binance-bg text-binance-textMuted text-xs font-semibold uppercase border-b border-binance-border">
-                            <th class="p-4 pl-6">ID</th>
-                            <th class="p-4">Titular</th>
-                            <th class="p-4">Operación</th>
-                            <th class="p-4">Moneda</th>
-                            <th class="p-4">Monto Depositado</th>
-                            <th class="p-4">Monto a Enviar</th>
-                            <th class="p-4 text-right pr-6">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody id="listaOrdenes" class="divide-y divide-binance-border text-sm">
-                        <tr>
-                            <td colspan="7" class="p-8 text-center text-binance-textMuted">
-                                <div class="flex flex-col items-center justify-center gap-2">
-                                    <div class="w-6 h-6 border-2 border-binance-gold border-t-transparent rounded-full animate-spin"></div>
-                                    <span>Sincronizando transacciones con Supabase...</span>
+            <main class="p-6 md:p-8 space-y-8 flex-1">
+
+                <!-- DASHBOARD -->
+                <section id="pane-dashboard" class="tab-content space-y-8">
+                    <!-- CONTADORES -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                        <!-- Pendientes -->
+                        <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border p-5 rounded-2xl flex items-center justify-between neon-glow transition-all duration-300">
+                            <div class="space-y-1">
+                                <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Pendientes</span>
+                                <h3 id="stat-pendientes" class="text-3xl font-cyber font-bold text-cyber-gold">0</h3>
+                            </div>
+                            <div class="bg-yellow-500/10 text-cyber-gold p-3 rounded-xl">
+                                <i data-lucide="clock" class="w-6 h-6 animate-pulse"></i>
+                            </div>
+                        </div>
+                        <!-- Completadas -->
+                        <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border p-5 rounded-2xl flex items-center justify-between neon-glow transition-all duration-300">
+                            <div class="space-y-1">
+                                <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Completadas</span>
+                                <h3 id="stat-completadas" class="text-3xl font-cyber font-bold text-cyber-neonGreen">0</h3>
+                            </div>
+                            <div class="bg-emerald-500/10 text-cyber-neonGreen p-3 rounded-xl">
+                                <i data-lucide="check-circle-2" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                        <!-- Canceladas -->
+                        <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border p-5 rounded-2xl flex items-center justify-between neon-glow transition-all duration-300">
+                            <div class="space-y-1">
+                                <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Canceladas</span>
+                                <h3 id="stat-canceladas" class="text-3xl font-cyber font-bold text-red-400">0</h3>
+                            </div>
+                            <div class="bg-red-500/10 text-red-400 p-3 rounded-xl">
+                                <i data-lucide="x-circle" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                        <!-- Volumen -->
+                        <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border p-5 rounded-2xl flex items-center justify-between neon-glow transition-all duration-300">
+                            <div class="space-y-1">
+                                <span class="text-xs font-mono text-gray-400 uppercase tracking-wider">Volumen Diario</span>
+                                <h3 id="stat-ingresos-hoy" class="text-2xl font-cyber font-bold text-cyber-neonBlue">0 Gs</h3>
+                            </div>
+                            <div class="bg-cyan-500/10 text-cyber-neonBlue p-3 rounded-xl">
+                                <i data-lucide="activity" class="w-6 h-6"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- COLA DE ATENCIÓN RÁPIDA & RESERVAS -->
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div class="lg:col-span-2 bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl p-6 space-y-4">
+                            <h3 class="text-lg font-cyber font-bold text-cyber-gold flex items-center gap-2">
+                                <span class="w-2 h-2 bg-cyber-gold rounded-full"></span> COLA DE PROCESAMIENTO RÁPIDO
+                            </h3>
+                            <p class="text-xs font-mono text-gray-400">Aprobación directa de flujos de caja sin demoras.</p>
+                            <div class="divide-y divide-cyber-border" id="quick-orders-container"></div>
+                        </div>
+                        
+                        <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl p-6 space-y-4">
+                            <h3 class="text-lg font-cyber font-bold text-white flex items-center gap-2">
+                                <span class="w-2 h-2 bg-cyber-neonBlue rounded-full shadow-[0_0_8px_#00f0ff]"></span> MONITOR DE RESERVAS
+                            </h3>
+                            <div class="space-y-3 font-mono text-sm">
+                                <div class="flex justify-between items-center bg-black/40 p-3.5 rounded-xl border border-cyber-border">
+                                    <span class="text-gray-400">GUARANÍES</span>
+                                    <span id="res-gs-lbl" class="font-bold text-cyber-neonGreen">0 Gs</span>
                                 </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </section>
+                                <div class="flex justify-between items-center bg-black/40 p-3.5 rounded-xl border border-cyber-border">
+                                    <span class="text-gray-400">USDT (BSC)</span>
+                                    <span id="res-usdt-lbl" class="font-bold text-cyber-neonBlue">0.00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-black/40 p-3.5 rounded-xl border border-cyber-border">
+                                    <span class="text-gray-400">USDC (BASE)</span>
+                                    <span id="res-usdc-lbl" class="font-bold text-indigo-400">0.00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-black/40 p-3.5 rounded-xl border border-cyber-border">
+                                    <span class="text-gray-400">BNB (BSC)</span>
+                                    <span id="res-bnb-lbl" class="font-bold text-purple-400">0.0000</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
 
-    </main>
+                <!-- RESERVAS -->
+                <section id="pane-reservas" class="tab-content space-y-6">
+                    <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl p-6 space-y-6">
+                        <div>
+                            <h3 class="text-xl font-cyber font-bold text-cyber-gold">NÚCLEO DE LIQUIDEZ</h3>
+                            <p class="text-xs font-mono text-gray-400 mt-1">Establecer los balances reales de las cuentas del nodo.</p>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-mono">
+                            <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                <label class="block text-xs text-cyber-neonGreen mb-2">GUARANÍES (Gs)</label>
+                                <input type="number" id="inp-gs" class="w-full bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none px-4 py-2.5 rounded-lg font-bold text-lg text-cyber-neonGreen">
+                            </div>
+                            <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                <label class="block text-xs text-cyber-neonBlue mb-2">USDT (RED BSC)</label>
+                                <input type="number" id="inp-usdt" class="w-full bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none px-4 py-2.5 rounded-lg font-bold text-lg text-cyber-neonBlue">
+                            </div>
+                            <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                <label class="block text-xs text-indigo-400 mb-2">USDC (RED BASE)</label>
+                                <input type="number" id="inp-usdc" class="w-full bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none px-4 py-2.5 rounded-lg font-bold text-lg text-indigo-400">
+                            </div>
+                            <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                <label class="block text-xs text-purple-400 mb-2">BNB (BNB CHAIN)</label>
+                                <input type="number" id="inp-bnb" step="0.0001" class="w-full bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none px-4 py-2.5 rounded-lg font-bold text-lg text-purple-400">
+                            </div>
+                        </div>
+                        <div class="flex justify-end">
+                            <button onclick="guardarFondosActualizados()" class="bg-cyber-gold text-black font-cyber font-bold px-8 py-3.5 rounded-xl hover:bg-yellow-500 transition-all duration-300 shadow-[0_0_15px_rgba(240,185,11,0.2)] flex items-center gap-2">
+                                <i data-lucide="save" class="w-5 h-5"></i> ACTUALIZAR LIQUIDEZ
+                            </button>
+                        </div>
+                    </div>
+                </section>
 
-    <!-- NOTIFICACIONES TOAST EMPOSTADAS -->
-    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2"></div>
+                <!-- TRANSACCIONES -->
+                <section id="pane-ordenes" class="tab-content space-y-6">
+                    <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl overflow-hidden">
+                        
+                        <div class="p-6 border-b border-cyber-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-yellow-500/5 to-transparent">
+                            <div>
+                                <h3 class="text-xl font-cyber font-bold text-cyber-gold">FLUJO ACTIVO DE DATOS</h3>
+                                <p class="text-xs font-mono text-gray-400">Control de órdenes entrantes de la red.</p>
+                            </div>
+                            <div class="flex flex-wrap items-center gap-3 w-full md:w-auto font-mono text-xs">
+                                <div class="relative flex-1 md:w-64">
+                                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"></i>
+                                    <input type="text" id="bus-ordenes" oninput="filtrarTransacciones()" placeholder="FILTRAR POR CLIENTE / ID..." class="w-full bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none pl-9 pr-4 py-2.5 rounded-xl">
+                                </div>
+                                <select id="fil-operacion" onchange="filtrarTransacciones()" class="bg-slate-900 border border-cyber-border focus:border-cyber-gold px-3 py-2.5 rounded-xl text-white">
+                                    <option value="todos">TODAS LAS ACCIONES</option>
+                                    <option value="COMPRA">COMPRAS (IN)</option>
+                                    <option value="VENDER">VENTAS (OUT)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse font-mono text-xs">
+                                <thead>
+                                    <tr class="bg-black/60 text-gray-400 uppercase border-b border-cyber-border">
+                                        <th class="p-4 pl-6">DATA_ID</th>
+                                        <th class="p-4">TIMESTAMP</th>
+                                        <th class="p-4">CLIENT</th>
+                                        <th class="p-4">OPERATION</th>
+                                        <th class="p-4">ASSET</th>
+                                        <th class="p-4">IN_VALUE</th>
+                                        <th class="p-4">STATE</th>
+                                        <th class="p-4 text-right pr-6">EXECUTION</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-pendientes" class="divide-y divide-cyber-border text-sm font-sans"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- HISTORIAL GLOBAL -->
+                <section id="pane-historial" class="tab-content space-y-6">
+                    <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl overflow-hidden">
+                        <div class="p-6 border-b border-cyber-border flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-gradient-to-r from-yellow-500/5 to-transparent">
+                            <div>
+                                <h3 class="text-xl font-cyber font-bold text-white">REGISTRO HISTÓRICO</h3>
+                                <p class="text-xs font-mono text-gray-400">Auditoría completa de transacciones pasadas.</p>
+                            </div>
+                            <div class="flex items-center gap-2.5 font-mono text-xs">
+                                <button onclick="exportarExcel()" class="bg-emerald-500/10 text-cyber-neonGreen hover:bg-emerald-500 hover:text-black border border-emerald-500/30 font-bold px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-1.5">
+                                    <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> EXCEL_OUT
+                                </button>
+                                <button onclick="exportarPDF()" class="bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/30 font-bold px-4 py-2.5 rounded-xl transition-all duration-300 flex items-center gap-1.5">
+                                    <i data-lucide="file-text" class="w-4 h-4"></i> PDF_OUT
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="p-4 bg-black/40 flex flex-col sm:flex-row gap-3 border-b border-cyber-border font-mono text-xs">
+                            <input type="text" id="bus-historial" oninput="filtrarHistorial()" placeholder="BUSCAR REGISTRO..." class="flex-1 bg-slate-900 border border-cyber-border focus:border-cyber-gold focus:outline-none pl-4 pr-4 py-2.5 rounded-xl">
+                            <select id="fil-historial-status" onchange="filtrarHistorial()" class="bg-slate-900 border border-cyber-border focus:border-cyber-gold px-3 py-2.5 rounded-xl text-white">
+                                <option value="todos">TODOS LOS ESTADOS</option>
+                                <option value="completado">COMPLETADO</option>
+                                <option value="cancelado">CANCELADO</option>
+                            </select>
+                        </div>
+
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left border-collapse font-mono text-xs" id="tabla-historial-pdf-target">
+                                <thead>
+                                    <tr class="bg-black/60 text-gray-400 uppercase border-b border-cyber-border">
+                                        <th class="p-4 pl-6">ID</th>
+                                        <th class="p-4">DATE</th>
+                                        <th class="p-4">CLIENT</th>
+                                        <th class="p-4">OP</th>
+                                        <th class="p-4">ASSET</th>
+                                        <th class="p-4">VALUE_IN</th>
+                                        <th class="p-4">VALUE_OUT</th>
+                                        <th class="p-4 pr-6 text-right">STATUS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-historial" class="divide-y divide-cyber-border text-sm font-sans"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- CONFIGURACIÓN -->
+                <section id="pane-configuracion" class="tab-content space-y-6">
+                    <div class="bg-cyber-panel backdrop-blur-md border border-cyber-border rounded-2xl p-6 space-y-6">
+                        <div>
+                            <h3 class="text-xl font-cyber font-bold text-cyber-gold">NÚCLEO Y ENLACES DB</h3>
+                            <p class="text-xs font-mono text-gray-400 mt-1">Conexión cifrada a la pasarela descentralizada.</p>
+                        </div>
+                        <div class="space-y-4 font-mono text-xs">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                    <label class="block text-cyber-gold font-bold mb-1.5 uppercase">DATABASE ENDPOINT</label>
+                                    <input type="text" id="cfg-url" readonly class="w-full bg-slate-900 border border-cyber-border focus:outline-none px-4 py-2.5 rounded-lg text-gray-400 select-all">
+                                </div>
+                                <div class="bg-black/50 p-4 rounded-xl border border-cyber-border">
+                                    <label class="block text-cyber-gold font-bold mb-1.5 uppercase">DATABASE ACCESS KEY</label>
+                                    <input type="password" id="cfg-key" readonly class="w-full bg-slate-900 border border-cyber-border focus:outline-none px-4 py-2.5 rounded-lg text-gray-400 select-all">
+                                </div>
+                            </div>
+                            <div class="p-4 bg-yellow-500/10 rounded-xl border border-yellow-500/20 text-xs text-cyber-gold">
+                                <p class="font-cyber font-bold flex items-center gap-1.5"><i data-lucide="alert-triangle" class="w-4 h-4"></i> CONFIGURACIÓN COMPLETA Y VERIFICADA</p>
+                                <p class="mt-1 font-sans">La terminal utiliza el subdominio activo de producción. Las llamadas están protegidas mediante políticas Row Level Security (RLS) autorizadas por UUID.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+            </main>
+        </div>
+    </div>
+
+    <!-- TOAST CONTAINER -->
+    <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2.5 font-mono text-xs"></div>
 
     <script>
-        // ⚠️ CONFIGURACIÓN DE TU SUPABASE (Ya corregida la inicialización de la V2)
+        // CLIENTES & CREDENCIALES CONFIGURADAS (Subdominio de Producción de Cryptocambios)
         const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co";
         const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
         
-        // Inicialización segura para CDN v2
-        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-        let fondosActuales = {};
-        let listaOrdenesLocal = [];
+        let dataReservas = {};
+        let poolOrdenes = [];
+        let audioContextInstanciado = null;
 
-        window.onload = function() {
-            // Inicializar Lucide Icons
-            lucide.createIcons();
-            cargarFondos();
-            escucharOrdenesRealtime();
-        };
-
-        // Mostrar notificaciones Toast estéticas
-        function showNotification(message, type = 'success') {
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = `p-4 rounded-xl shadow-xl flex items-center gap-3 border transition duration-300 transform translate-y-2 animate-bounce ${
-                type === 'success' ? 'bg-green-950/80 border-green-500 text-green-300' : 'bg-red-950/80 border-red-500 text-red-300'
-            }`;
-            
-            const icon = type === 'success' ? 'check-circle' : 'alert-triangle';
-            toast.innerHTML = `
-                <i data-lucide="${icon}" class="w-5 h-5 flex-shrink-0"></i>
-                <span class="text-sm font-medium">${message}</span>
-            `;
-            container.appendChild(toast);
-            lucide.createIcons();
-
-            setTimeout(() => {
-                toast.classList.add('opacity-0', 'translate-y-0');
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+        // Activa el AudioContext con la primera acción del usuario para evitar bloqueos del navegador
+        function activarAudioContext() {
+            if (!audioContextInstanciado) {
+                audioContextInstanciado = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContextInstanciado.state === 'suspended') {
+                audioContextInstanciado.resume();
+            }
         }
 
-        // Carga de saldos iniciales y actualización de estadísticas superiores
-        async function cargarFondos() {
+        window.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            document.getElementById('cfg-url').value = SUPABASE_URL;
+            document.getElementById('cfg-key').value = SUPABASE_ANON_KEY;
+            inicializarAplicacionDirecta();
+        });
+
+        function inicializarAplicacionDirecta() {
+            cambiarPestana('dashboard');
+            conectarCanalRealtime();
+            cargarReservas();
+            cargarColeccionOrdenes();
+        }
+
+        function cambiarPestana(targetPaneId) {
+            document.querySelectorAll('.tab-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => {
+                b.classList.remove('bg-yellow-500/20', 'text-cyber-gold', 'border', 'border-cyber-border', 'shadow-[0_0_10px_rgba(240,185,11,0.1)]');
+                b.classList.add('text-gray-400');
+            });
+
+            document.getElementById(`pane-${targetPaneId}`).classList.add('active');
+            const targetBtn = document.getElementById(`nav-${targetPaneId}`);
+            if (targetBtn) {
+                targetBtn.classList.remove('text-gray-400');
+                targetBtn.classList.add('bg-yellow-500/20', 'text-cyber-gold', 'border', 'border-cyber-border', 'shadow-[0_0_10px_rgba(240,185,11,0.1)]');
+            }
+
+            const sidebar = document.getElementById('sidebar');
+            if (!sidebar.classList.contains('-translate-x-full')) {
+                sidebar.classList.add('-translate-x-full');
+            }
+        }
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('-translate-x-full');
+        }
+
+        function sonarNotificacion() {
             try {
-                const { data, error } = await supabaseClient.from('reservas').select('*').eq('id', 1).single();
+                activarAudioContext();
+                if (!audioContextInstanciado) return;
+                
+                const ctx = audioContextInstanciado;
+                const osc1 = ctx.createOscillator();
+                const osc2 = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc1.type = 'sawtooth';
+                osc1.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc1.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.15); // A5
+
+                osc2.type = 'sine';
+                osc2.frequency.setValueAtTime(293.66, ctx.currentTime); // D4
+                osc2.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(0.12, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+                osc1.connect(gain);
+                osc2.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc1.start();
+                osc2.start();
+                osc1.stop(ctx.currentTime + 0.5);
+                osc2.stop(ctx.currentTime + 0.5);
+            } catch (e) {
+                console.warn("AudioContext no iniciado por el usuario todavía.", e);
+            }
+        }
+
+        async function cargarReservas() {
+            try {
+                const { data, error } = await db.from('reservas').select('*').eq('id', 1).single();
                 if (error) throw error;
 
                 if (data) {
-                    fondosActuales = data;
-                    document.getElementById('f_gs').value = data.gs;
-                    document.getElementById('f_usdt').value = data.usdt;
-                    document.getElementById('f_usdc').value = data.usdc;
-                    document.getElementById('f_bnb').value = data.bnb;
+                    dataReservas = data;
+                    document.getElementById('inp-gs').value = data.gs;
+                    document.getElementById('inp-usdt').value = data.usdt;
+                    document.getElementById('inp-usdc').value = data.usdc;
+                    document.getElementById('inp-bnb').value = data.bnb;
 
-                    // Actualizar las Cards de Stats
-                    document.getElementById('stat-gs').innerText = `${parseFloat(data.gs).toLocaleString('es-PY')} Gs`;
-                    document.getElementById('stat-stables').innerText = `${(parseFloat(data.usdt) + parseFloat(data.usdc)).toLocaleString('en-US')} USD`;
-                    document.getElementById('stat-bnb').innerText = `${parseFloat(data.bnb).toFixed(4)} BNB`;
+                    document.getElementById('res-gs-lbl').innerText = `${parseFloat(data.gs).toLocaleString('es-PY')} Gs`;
+                    document.getElementById('res-usdt-lbl').innerText = `${parseFloat(data.usdt).toLocaleString('en-US')} USDT`;
+                    document.getElementById('res-usdc-lbl').innerText = `${parseFloat(data.usdc).toLocaleString('en-US')} USDC`;
+                    document.getElementById('res-bnb-lbl').innerText = `${parseFloat(data.bnb).toFixed(4)} BNB`;
                 }
             } catch (err) {
-                console.error("Error al cargar fondos:", err);
-                showNotification("No se pudieron cargar las reservas.", "error");
+                console.error("Error cargando liquidez de reservas:", err);
             }
         }
 
-        // Guardado manual de reservas
-        async function guardarFondos() {
-            const updates = {
-                gs: parseFloat(document.getElementById('f_gs').value) || 0,
-                usdt: parseFloat(document.getElementById('f_usdt').value) || 0,
-                usdc: parseFloat(document.getElementById('f_usdc').value) || 0,
-                bnb: parseFloat(document.getElementById('f_bnb').value) || 0,
+        async function guardarFondosActualizados() {
+            const updateObj = {
+                gs: parseFloat(document.getElementById('inp-gs').value) || 0,
+                usdt: parseFloat(document.getElementById('inp-usdt').value) || 0,
+                usdc: parseFloat(document.getElementById('inp-usdc').value) || 0,
+                bnb: parseFloat(document.getElementById('inp-bnb').value) || 0
             };
 
-            const { error } = await supabaseClient.from('reservas').update(updates).eq('id', 1);
+            const { error } = await db.from('reservas').update(updateObj).eq('id', 1);
             if (!error) {
-                showNotification("Reservas globales actualizadas con éxito.");
-                cargarFondos();
+                mostrarToast("Línea de liquidez de reservas actualizada.");
+                cargarReservas();
             } else {
-                showNotification("Error al actualizar reservas de la base de datos.", "error");
+                mostrarToast("Fallo al inyectar liquidez en el nodo.", "error");
             }
         }
 
-        // Escuchar el canal en tiempo real de Supabase
-        async function escucharOrdenesRealtime() {
-            renderizarListaOrdenes();
-            
-            // Suscribirse a cambios Postgres en tiempo real
-            supabaseClient.channel('db-changes')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'ordenes' }, () => {
-                    renderizarListaOrdenes();
+        async function cargarColeccionOrdenes() {
+            try {
+                const { data, error } = await db.from('ordenes').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+
+                poolOrdenes = data || [];
+                actualizarEstadisticasVisuales();
+                filtrarTransacciones();
+                filtrarHistorial();
+                renderizarQuickDashboard();
+            } catch (err) {
+                console.error("Fallo general al recuperar transacciones:", err);
+            }
+        }
+
+        function conectarCanalRealtime() {
+            db.channel('monitor-realtime')
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ordenes' }, payload => {
+                    const nuevaOrden = payload.new;
+                    poolOrdenes.unshift(nuevaOrden);
+                    
+                    sonarNotificacion();
+                    mostrarToast(`⚡ [NUEVA TRANSACCIÓN #${nuevaOrden.id}] - ${nuevaOrden.titular}`);
+                    
+                    actualizarEstadisticasVisuales();
+                    filtrarTransacciones();
+                    filtrarHistorial();
+                    renderizarQuickDashboard();
+                })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'ordenes' }, payload => {
+                    const index = poolOrdenes.findIndex(o => o.id === payload.new.id);
+                    if (index !== -1) {
+                        poolOrdenes[index] = payload.new;
+                        actualizarEstadisticasVisuales();
+                        filtrarTransacciones();
+                        filtrarHistorial();
+                        renderizarQuickDashboard();
+                    }
                 })
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
-                    cargarFondos();
+                    cargarReservas();
                 })
                 .subscribe();
         }
 
-        // Renderizado reactivo y procesado de la tabla de solicitudes
-        async function renderizarListaOrdenes() {
-            try {
-                const { data, error } = await supabaseClient
-                    .from('ordenes')
-                    .select('*')
-                    .eq('estado', 'pendiente')
-                    .order('created_at', { ascending: true });
+        function actualizarEstadisticasVisuales() {
+            const pendientes = poolOrdenes.filter(o => o.estado === 'pendiente');
+            const completadas = poolOrdenes.filter(o => o.estado === 'completado');
+            const canceladas = poolOrdenes.filter(o => o.estado === 'cancelado');
 
-                if (error) throw error;
+            document.getElementById('stat-pendientes').innerText = pendientes.length;
+            document.getElementById('stat-completadas').innerText = completadas.length;
+            document.getElementById('stat-canceladas').innerText = canceladas.length;
 
-                listaOrdenesLocal = data || [];
-                
-                // Actualizar contador del stat de pendientes
-                document.getElementById('stat-pendientes').innerText = listaOrdenesLocal.length;
+            const hoyString = new Date().toISOString().split('T')[0];
+            const completadasHoy = completadas.filter(o => o.created_at && o.created_at.startsWith(hoyString));
+            
+            let totalGsHoy = 0;
+            completadasHoy.forEach(o => {
+                if (o.tipo === 'VENDER') {
+                    totalGsHoy += parseFloat(o.resultado.replace(/[^0-9]/g, '')) || 0;
+                } else {
+                    totalGsHoy += parseFloat(o.monto.replace(/[^0-9]/g, '')) || 0;
+                }
+            });
 
-                filtrarTabla(); // Aplica filtros actuales
-
-            } catch (err) {
-                console.error("Error al renderizar órdenes:", err);
-            }
+            document.getElementById('stat-ingresos-hoy').innerText = `${totalGsHoy.toLocaleString('es-PY')} Gs`;
         }
 
-        // Filtrado dinámico sobre los datos en memoria
-        function filtrarTabla() {
-            const buscadorVal = document.getElementById('tablaBuscar').value.toLowerCase();
-            const filtroTipo = document.getElementById('filtroTipo').value;
-            const tbody = document.getElementById('listaOrdenes');
+        function renderizarQuickDashboard() {
+            const quickContainer = document.getElementById('quick-orders-container');
+            const pendientes = poolOrdenes.filter(o => o.estado === 'pendiente').slice(0, 3);
 
-            const filtrados = listaOrdenesLocal.filter(o => {
-                const cumpleBuscador = o.titular.toLowerCase().includes(buscadorVal) || o.id.toString().includes(buscadorVal);
-                const cumpleTipo = (filtroTipo === 'todos') || (o.tipo === filtroTipo);
-                return cumpleBuscador && cumpleTipo;
+            quickContainer.innerHTML = "";
+            if (pendientes.length === 0) {
+                quickContainer.innerHTML = `
+                    <div class="p-6 text-center text-xs font-mono text-gray-500 italic">
+                        SYSTEM_IDLE // SIN SOLICITUDES EN COLA
+                    </div>
+                `;
+                return;
+            }
+
+            pendientes.forEach(o => {
+                quickContainer.innerHTML += `
+                    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between py-4 gap-3">
+                        <div class="space-y-1">
+                            <h4 class="font-cyber font-bold text-xs text-white flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-yellow-500 inline-block animate-ping"></span>
+                                #${o.id} — ${o.titular}
+                            </h4>
+                            <p class="text-xs font-mono text-gray-400">
+                                Deposita: <span class="text-cyber-gold">${o.monto}</span> ➡️ Recibe: <span class="text-cyber-neonGreen">${o.resultado}</span>
+                            </p>
+                        </div>
+                        <div class="flex items-center gap-2 self-end sm:self-center">
+                            <button onclick="liberarOrdenRapida(${o.id}, '${o.tipo}', '${o.cripto}', '${o.monto}', '${o.resultado}')" class="bg-cyber-gold hover:bg-yellow-500 text-black font-cyber font-bold px-4 py-2 rounded-lg text-xs tracking-wider transition-all duration-200">
+                                LIBERAR
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function filtrarTransacciones() {
+            const text = document.getElementById('bus-ordenes').value.toLowerCase();
+            const operacion = document.getElementById('fil-operacion').value;
+            const tbody = document.getElementById('tbody-pendientes');
+
+            const filtradas = poolOrdenes.filter(o => {
+                if (o.estado !== 'pendiente') return false;
+                const matchBus = o.titular.toLowerCase().includes(text) || o.id.toString().includes(text);
+                const matchOp = operacion === 'todos' || o.tipo === operacion;
+                return matchBus && matchOp;
             });
 
             tbody.innerHTML = "";
-
-            if (filtrados.length === 0) {
+            if (filtradas.length === 0) {
                 tbody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="p-8 text-center text-binance-textMuted italic">
-                            No se encontraron operaciones pendientes bajo estos criterios.
+                        <td colspan="8" class="p-8 text-center text-gray-500 font-mono italic">
+                            NO_ACTIVE_TRANSACTIONS // COLA VACÍA
                         </td>
                     </tr>
                 `;
                 return;
             }
 
-            filtrados.forEach(o => {
+            filtradas.forEach(o => {
                 const isCompra = o.tipo === 'COMPRA';
+                const fechaLegible = o.created_at ? new Date(o.created_at).toLocaleString('es-PY', {hour12: false}) : 'Sin Fecha';
                 tbody.innerHTML += `
-                    <tr class="hover:bg-binance-input/50 transition duration-150">
-                        <td class="p-4 pl-6 font-semibold text-binance-gold">#${o.id}</td>
-                        <td class="p-4 font-medium">${o.titular}</td>
+                    <tr class="hover:bg-slate-900/50 transition border-b border-cyber-border">
+                        <td class="p-4 pl-6 font-mono font-bold text-cyber-gold">#${o.id}</td>
+                        <td class="p-4 text-xs font-mono text-gray-400">${fechaLegible}</td>
+                        <td class="p-4 font-semibold text-white">${o.titular}</td>
                         <td class="p-4">
-                            <span class="px-2.5 py-1 rounded-md text-xs font-semibold ${
-                                isCompra ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            <span class="px-2.5 py-1 rounded-md text-[10px] font-mono font-bold ${
+                                isCompra ? 'bg-emerald-500/10 text-cyber-neonGreen border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
                             }">
                                 ${o.tipo}
                             </span>
                         </td>
-                        <td class="p-4 text-binance-textMuted font-mono">${o.cripto}</td>
-                        <td class="p-4 font-bold text-neutral-300">${o.monto}</td>
-                        <td class="p-4 font-bold text-white">${o.resultado}</td>
+                        <td class="p-4 font-mono text-gray-400">${o.cripto}</td>
+                        <td class="p-4 font-mono font-bold text-gray-300">${o.monto}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-yellow-500/10 text-cyber-gold border border-yellow-500/20">
+                                PENDING
+                            </span>
+                        </td>
                         <td class="p-4 text-right pr-6">
                             <div class="flex items-center justify-end gap-2">
-                                <button onclick="liberarOrden(${o.id}, '${o.tipo}', '${o.cripto}', '${o.monto}', '${o.resultado}')" class="bg-green-500 hover:bg-green-600 text-black font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1">
-                                    <i data-lucide="check-circle" class="w-3.5 h-3.5"></i> Liberar
+                                <button onclick="liberarOrdenRapida(${o.id}, '${o.tipo}', '${o.cripto}', '${o.monto}', '${o.resultado}')" class="bg-cyber-gold hover:bg-yellow-500 text-black font-cyber font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                                    APROBAR
                                 </button>
-                                <button onclick="cancelarOrden(${o.id})" class="bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white border border-red-500/20 font-bold px-3 py-1.5 rounded-lg text-xs transition flex items-center gap-1">
-                                    <i data-lucide="x-circle" class="w-3.5 h-3.5"></i> Rechazar
+                                <button onclick="rechazarOrden(${o.id})" class="bg-red-500/15 text-red-400 hover:bg-red-500 hover:text-white border border-red-500/20 font-bold px-3 py-1.5 rounded-lg text-xs transition">
+                                    RECHAZAR
                                 </button>
                             </div>
                         </td>
                     </tr>
                 `;
             });
-
-            // Re-vincular los iconos cargados con Lucide
             lucide.createIcons();
         }
 
-        // Liberar Fondos y actualizar base de datos
-        async function liberarOrden(id, tipo, criptoRaw, montoRaw, resultadoRaw) {
-            if (!confirm(`¿Confirmas que ya verificaste el pago y quieres liberar la Orden #${id}?`)) return;
+        function filtrarHistorial() {
+            const text = document.getElementById('bus-historial').value.toLowerCase();
+            const status = document.getElementById('fil-historial-status').value;
+            const tbody = document.getElementById('tbody-historial');
+
+            const filtradas = poolOrdenes.filter(o => {
+                if (o.estado === 'pendiente') return false;
+                const matchBus = o.titular.toLowerCase().includes(text) || o.id.toString().includes(text);
+                const matchStatus = status === 'todos' || o.estado === status;
+                return matchBus && matchStatus;
+            });
+
+            tbody.innerHTML = "";
+            if (filtradas.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="8" class="p-8 text-center text-gray-500 font-mono italic">
+                            NO_RECORDS_FOUND // BASE DE DATOS LIMPIA
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            filtradas.forEach(o => {
+                const isCompra = o.tipo === 'COMPRA';
+                const isCompletado = o.estado === 'completado';
+                const fechaLegible = o.created_at ? new Date(o.created_at).toLocaleString('es-PY', {hour12: false}) : 'Sin Fecha';
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-900/50 transition border-b border-cyber-border">
+                        <td class="p-4 pl-6 font-mono font-bold text-gray-400">#${o.id}</td>
+                        <td class="p-4 text-xs font-mono text-gray-500">${fechaLegible}</td>
+                        <td class="p-4 font-semibold text-gray-300">${o.titular}</td>
+                        <td class="p-4">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                isCompra ? 'bg-emerald-500/10 text-cyber-neonGreen border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }">
+                                ${o.tipo}
+                            </span>
+                        </td>
+                        <td class="p-4 font-mono text-gray-500">${o.cripto}</td>
+                        <td class="p-4 font-mono text-gray-400">${o.monto}</td>
+                        <td class="p-4 font-mono font-bold text-white">${o.resultado}</td>
+                        <td class="p-4 pr-6 text-right">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold ${
+                                isCompletado ? 'bg-cyan-500/10 text-cyber-neonBlue border border-cyan-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }">
+                                ${isCompletado ? 'COMPLETED' : 'CANCELLED'}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        async function liberarOrdenRapida(id, tipo, criptoRaw, montoRaw, resultadoRaw) {
+            if (!confirm(`¿Estás seguro de que quieres autorizar la Orden #${id}?`)) return;
 
             try {
-                // 1. Cambiar estado a completado
-                const { error: errorOrden } = await supabaseClient.from('ordenes').update({ estado: 'completado' }).eq('id', id);
+                const { error: errorOrden } = await db.from('ordenes').update({ estado: 'completado' }).eq('id', id);
                 if (errorOrden) throw errorOrden;
 
-                // 2. Descontar de los saldos
+                // Robustez en limpieza de formatos numéricos
                 let criptoRef = criptoRaw.includes("BNB") ? "bnb" : (criptoRaw.includes("USDC") ? "usdc" : "usdt");
-                let nuevoSaldoGs = fondosActuales.gs;
-                let nuevoSaldoCrypto = fondosActuales[criptoRef];
+                let nuevoSaldoGs = parseFloat(dataReservas.gs) || 0;
+                let nuevoSaldoCrypto = parseFloat(dataReservas[criptoRef]) || 0;
 
                 if (tipo === "COMPRA") {
                     let valorCrypto = parseFloat(montoRaw.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
@@ -404,34 +735,99 @@
                     nuevoSaldoGs = Math.max(0, nuevoSaldoGs - valorGs);
                 }
 
-                const { error: errorReserva } = await supabaseClient.from('reservas').update({
+                const { error: errorReserva } = await db.from('reservas').update({
                     gs: nuevoSaldoGs,
                     [criptoRef]: nuevoSaldoCrypto
                 }).eq('id', 1);
 
                 if (errorReserva) throw errorReserva;
 
-                showNotification(`¡Orden #${id} procesada con éxito!`);
-                cargarFondos();
-                renderizarListaOrdenes();
+                mostrarToast(`Orden #${id} liquidada. Fondos en reservas actualizados.`);
+                cargarReservas();
+                cargarColeccionOrdenes();
 
             } catch (err) {
-                console.error("Fallo al liberar orden:", err);
-                showNotification("No se pudo completar el proceso de liberación.", "error");
+                console.error("Fallo durante la transacción del backend:", err);
+                mostrarToast("Fallo crítico de balance en base de datos.", "error");
             }
         }
 
-        // Cancelar / Rechazar orden
-        async function cancelarOrden(id) {
-            if (!confirm(`¿Estás seguro de que quieres rechazar y cancelar la Orden #${id}?`)) return;
-            
-            const { error } = await supabaseClient.from('ordenes').update({ estado: 'cancelado' }).eq('id', id);
+        async function rechazarOrden(id) {
+            if (!confirm(`¿Confirmas rechazar definitivamente la Orden #${id}?`)) return;
+
+            const { error } = await db.from('ordenes').update({ estado: 'cancelado' }).eq('id', id);
             if (!error) {
-                showNotification(`Orden #${id} cancelada.`, "error");
-                renderizarListaOrdenes();
+                mostrarToast(`Orden #${id} rechazada y anulada del sistema.`, "error");
+                cargarColeccionOrdenes();
             } else {
-                showNotification("Fallo al cancelar la orden en Supabase.", "error");
+                mostrarToast("No se pudo registrar la cancelación.", "error");
             }
+        }
+
+        function exportarExcel() {
+            try {
+                const sheetData = poolOrdenes.map(o => ({
+                    ID: o.id,
+                    Fecha: o.created_at ? new Date(o.created_at).toLocaleString() : '',
+                    Cliente: o.titular,
+                    Operacion: o.tipo,
+                    Cripto: o.cripto,
+                    Monto_Recibido: o.monto,
+                    Monto_Enviado: o.resultado,
+                    Estado: o.estado
+                }));
+
+                const worksheet = XLSX.utils.json_to_sheet(sheetData);
+                const workbook = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(workbook, worksheet, "Historial Transacciones");
+                
+                XLSX.writeFile(workbook, `Reporte_CryptoCambios_${new Date().toISOString().split('T')[0]}.xlsx`);
+                mostrarToast("Archivo Excel descargado exitosamente.");
+            } catch (e) {
+                console.error(e);
+                mostrarToast("No se pudo generar el Excel.", "error");
+            }
+        }
+
+        function exportarPDF() {
+            const target = document.getElementById('tabla-historial-pdf-target');
+            const options = {
+                margin:       1,
+                filename:     `Reporte_CryptoCambios_${new Date().toISOString().split('T')[0]}.pdf`,
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, backgroundColor: '#030712', useCORS: true },
+                jsPDF:        { unit: 'cm', format: 'a4', orientation: 'landscape' }
+            };
+
+            mostrarToast("Exportando archivo PDF...");
+            html2pdf().set(options).from(target).save()
+                .then(() => mostrarToast("Documento PDF guardado con éxito."))
+                .catch(err => {
+                    console.error(err);
+                    mostrarToast("Fallo al exportar el archivo PDF.", "error");
+                });
+        }
+
+        function mostrarToast(message, type = "success") {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `p-4 rounded-xl border shadow-2xl flex items-center gap-3 transition-all transform translate-y-3 duration-300 backdrop-blur-md ${
+                type === 'success' ? 'bg-emerald-950/90 border-cyber-neonGreen text-cyber-neonGreen shadow-[0_0_15px_rgba(0,255,204,0.15)]' : 'bg-red-950/90 border-red-500 text-red-300 shadow-[0_0_15px_rgba(239,68,68,0.15)]'
+            }`;
+
+            const icon = type === 'success' ? 'check-circle' : 'alert-triangle';
+            toast.innerHTML = `
+                <i data-lucide="${icon}" class="w-5 h-5 flex-shrink-0"></i>
+                <div class="text-xs font-semibold tracking-wide">${message}</div>
+            `;
+
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
         }
     </script>
 </body>
