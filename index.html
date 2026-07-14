@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CryptoCambios PY - Sistema Profesional v9.6 (Conectado)</title>
+    <title>CryptoCambios PY - Sistema Profesional v1.0 (Conectado)</title>
     <style>
         :root {
             --bg-color: #000000;
@@ -275,15 +275,6 @@
             border-radius: 10px;
             pointer-events: none;
         }
-        .gs-highlight-label {
-            font-size: 11px;
-            letter-spacing: 3px;
-            color: var(--primary);
-            font-weight: bold;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-            position: relative;
-        }
         .gs-highlight-value {
             font-family: 'Courier New', monospace;
             font-size: 32px;
@@ -291,6 +282,15 @@
             color: #fff6d9;
             letter-spacing: 1px;
             text-shadow: 0 0 12px rgba(163,230,53,0.55), 0 0 26px rgba(163,230,53,0.28);
+            position: relative;
+        }
+        .gs-highlight-label {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: var(--primary);
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-bottom: 6px;
             position: relative;
         }
 
@@ -379,7 +379,7 @@
         </svg>
     </div>
 
-    <!-- PANTALLA DE BLOQUEO POR PROCESO ACTIVO (Sincronizada con Supabase) -->
+    <!-- PANTALLA DE BLOQUEO POR PROCESO ACTIVO -->
     <div id="lockOverlay" class="lock-overlay">
         <div class="lock-box">
             <h3 style="color: var(--primary); margin-bottom: 8px;">⏳ Transacción en Proceso</h3>
@@ -395,7 +395,7 @@
         <p>Exchange automatizado y verificado local</p>
     </div>
 
-    <!-- SALDOS REALES DE LA BASE DE DATOS -->
+    <!-- SALDOS REALES DESDE SUPABASE -->
     <div class="status-container">
         <div class="status-badge">
             <span>Guaraníes:</span>
@@ -577,7 +577,7 @@
 </a>
 
 <script>
-    // 1. CREDENCIALES DE SUPABASE INTEGRADAS
+    // 1. CREDENCIALES DE SUPABASE INTEGRADAS (Instanciado de forma correcta)
     const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co"; 
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
 
@@ -607,7 +607,7 @@
         actualizarPizarraVisual();
         sincronizarDivisaMonto();
         
-        // Carga y escucha en vivo los fondos de reservas reales en Supabase
+        // Carga y escucha en vivo de reservas
         await cargarFondosDesdeSupabase();
         escucharCambiosFondos();
         
@@ -659,10 +659,10 @@
         document.getElementById('piz-bnb-v').innerText = PRECIOS.BNB.venta.toLocaleString('de-DE') + " Gs";
     }
 
-    // CONEXIÓN DIRECTA A SUPABASE: Obtener la fila con id 1 de tu tabla "reservas"
+    // CONEXIÓN DIRECTA A SUPABASE
     async function cargarFondosDesdeSupabase() {
         try {
-            const { data, error } = await supabase.from('reservas').select('*').eq('id', 1).single();
+            const { data, error } = await supabaseClient.from('reservas').select('*').eq('id', 1).single();
             if (!error && data) {
                 fondosActuales = { gs: data.gs, USDC: data.usdc, USDT: data.usdt, BNB: data.bnb };
                 renderizarSaldosPantalla();
@@ -681,9 +681,8 @@
         document.getElementById('saldo_bnb_display').innerText = fondosActuales.BNB.toFixed(6).replace('.', ',') + " BNB";
     }
 
-    // Escucha en vivo cambios directos en la base de datos de Supabase
     function escucharCambiosFondos() {
-        supabase.channel('cambios-reservas')
+        supabaseClient.channel('cambios-reservas')
             .on('postgres_changes', { event: 'UPDATE', filter: 'id=eq.1', schema: 'public', table: 'reservas' }, payload => {
                 fondosActuales = { gs: payload.new.gs, USDC: payload.new.usdc, USDT: payload.new.usdt, BNB: payload.new.bnb };
                 renderizarSaldosPantalla();
@@ -957,12 +956,11 @@
     function copiarDatosEmpresa() { navigator.clipboard.writeText("3652363"); showToast("Alias ueno bank copiado.", "success"); }
     function copiarWalletEmpresa() { navigator.clipboard.writeText(WALLET_EMPRESA); showToast("Wallet copiada.", "success"); }
 
-    // Función que se ejecuta automáticamente cuando Supabase cambia el estado de la transacción a 'completado'
+    // Función automatizada para actualizar reservas y liberar bloqueo
     async function finalizarBloqueoExitoso(idOrden) {
         clearInterval(timerInterval);
         if (channelOrdenes) channelOrdenes.unsubscribe();
         
-        // Descontar saldos de forma local basándonos en la orden procesada
         let cacheTx = JSON.parse(localStorage.getItem('tx_pendiente_cache'));
         if (cacheTx) {
             if (cacheTx.tipo === "COMPRA") {
@@ -972,8 +970,7 @@
                 fondosActuales.gs = Math.max(0, fondosActuales.gs - cacheTx.descuentoGs);
             }
             
-            // Actualizamos en Supabase para que coincida
-            await supabase.from('reservas').update({
+            await supabaseClient.from('reservas').update({
                 gs: fondosActuales.gs,
                 usdc: fondosActuales.USDC,
                 usdt: fondosActuales.USDT,
@@ -1007,8 +1004,7 @@
         const montoDivisa = document.getElementById('monto_divisa').value;
         const finalEst = document.getElementById('valEstimado').innerText;
 
-        // Insertar en tu tabla "ordenes" de Supabase
-        const { data, error } = await supabase.from('ordenes').insert([{
+        const { data, error } = await supabaseClient.from('ordenes').insert([{
             titular: nombre,
             tipo: tipoOp,
             cripto: cripto,
@@ -1035,7 +1031,6 @@
             mensaje += `\nBanco/Medio: ${medio}\nIdentificador: ${document.getElementById('v_cuenta').value}\nCI: ${document.getElementById('v_cedula').value}`;
         }
 
-        // Almacenar estados temporales locales
         localStorage.setItem('tx_pendiente_cache', JSON.stringify(transaccionPendiente));
         localStorage.setItem('block_exp', Date.now() + (15 * 60 * 1000));
         localStorage.setItem('orden_activa_id', idOrden);
@@ -1051,8 +1046,8 @@
 
         if (channelOrdenes) channelOrdenes.unsubscribe();
 
-        // Suscripción en Tiempo Real al estado de la orden específica en Supabase
-        channelOrdenes = supabase.channel(`orden-${idOrden}`)
+        // Suscripción Realtime corregida
+        channelOrdenes = supabaseClient.channel(`orden-${idOrden}`)
             .on('postgres_changes', { event: 'UPDATE', filter: `id=eq.${idOrden}`, schema: 'public', table: 'ordenes' }, payload => {
                 if (payload.new.estado === 'completado') {
                     finalizarBloqueoExitoso(idOrden);
@@ -1079,8 +1074,7 @@
         if (exp && idOrden) {
             const t = Math.floor((parseInt(exp) - Date.now()) / 1000);
             if (t > 0) {
-                // Verificar estado real de la base de datos por si se completó mientras estaba cerrado
-                const { data } = await supabase.from('ordenes').select('estado').eq('id', idOrden).single();
+                const { data } = await supabaseClient.from('ordenes').select('estado').eq('id', idOrden).single();
                 if (data && data.estado === 'completado') {
                     await finalizarBloqueoExitoso(idOrden);
                 } else if (data && data.estado === 'cancelado') {
@@ -1100,7 +1094,7 @@
         
         const idOrden = localStorage.getItem('orden_activa_id');
         if (idOrden) {
-            await supabase.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden);
+            await supabaseClient.from('ordenes').update({ estado: 'cancelado' }).eq('id', idOrden);
         }
 
         localStorage.removeItem('block_exp');
@@ -1110,10 +1104,10 @@
         showToast("Orden expirada o cancelada de forma segura.", "error");
     }
 
-    // HISTORIAL EN TIEMPO REAL DESDE TU BASE DE DATOS
+    // HISTORIAL EN TIEMPO REAL DESDE SUPABASE
     async function actualizarHistorialPantalla() {
         try {
-            const { data, error } = await supabase
+            const { data, error } = await supabaseClient
                 .from('ordenes')
                 .select('*')
                 .eq('estado', 'completado')
