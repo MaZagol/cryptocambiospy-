@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CryptoCambios Py</title>
     
-    <!-- Estilos CSS (Podés personalizarlos a tu gusto) -->
+    <!-- Estilos CSS base -->
     <style>
         :root {
             --primary: #0070f3;
-            --success: #0070f3; /* Cambiar a verde si lo preferís */
+            --success: #00ff00;
             --danger: #ff0000;
             --accent-orange: #f5a623;
             --bg-dark: #121212;
@@ -22,8 +22,8 @@
             margin: 20px;
         }
         .hidden { display: none !important; }
-        .validador-status.valido { color: #00ff00; }
-        .validador-status.invalido { color: #ff0000; }
+        .validador-status.valido { color: var(--success); }
+        .validador-status.invalido { color: var(--danger); }
         .toast-notif {
             position: fixed;
             bottom: 20px;
@@ -40,7 +40,7 @@
         }
     </style>
 
-    <!-- Cargamos el SDK de Supabase -->
+    <!-- Cargamos el SDK de Supabase de forma segura -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
@@ -159,9 +159,9 @@
 
     <!-- ================= CONTROLADOR JAVASCRIPT ================= -->
     <script>
-        // 1. CONFIGURACIÓN DE SUPABASE - ¡REMPLAZÁ ESTO CON TUS CREDENCIALES REALES!
-        const SUPABASE_URL = "TU_URL_DE_SUPABASE"; 
-        const SUPABASE_ANON_KEY = "TU_NUEVA_CLAVE_ANON";
+        // 1. CREDENCIALES DE SUPABASE INTEGRADAS
+        const SUPABASE_URL = "https://xzlviaabgzxbugpqztyw.supabase.co"; 
+        const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh6bHZpYWFiZ3p4YnVncHF6dHl3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM5MjI3NTcsImV4cCI6MjA5OTQ5ODc1N30.leLWloD1BkAuJD8J2qNe2K_jVFzveQTFk1oKLAFQVZE";
 
         var supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
@@ -189,7 +189,7 @@
         let transaccionPendiente = null;
         let channelOrdenes = null;
 
-        // Función de seguridad para inyectar textos sin tumbar el script
+        // Función de seguridad ante elementos ausentes en el DOM
         function setElementText(id, text) {
             const el = document.getElementById(id);
             if (el) el.innerText = text;
@@ -532,7 +532,7 @@
             const montoDivisa = montoDivisaEl.value;
             const finalEst = valEstimadoEl.innerText;
 
-            // Insertamos la orden en Supabase
+            // Insertamos la orden en la base de datos
             const { data, error } = await supabase.from('ordenes').insert([{
                 titular: "Cliente Web", 
                 tipo: tipoOp, 
